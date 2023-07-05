@@ -36,11 +36,14 @@ facilitate generic parallelism.
 -----inclusion guard------------------------------------------------------------------------------*/
 #ifndef PARALLILOS_HPP
 #define PARALLILOS_HPP
+// --necessary standard libraries-------------------------------------------------------------------
+#include <cstddef> // for size_t
+#include <cmath>   // for std::sqrt
 // --Parallilos library-----------------------------------------------------------------------------
 namespace Parallilos
 {
-// --Parallilos library: backend--------------------------------------------------------------------
-  namespace Backend
+// --Parallilos library: frontend forward declarations----------------------------------------------
+  inline namespace Frontend
   {
     // library version
     #define PARALLILOS_VERSION       000001000L
@@ -48,7 +51,26 @@ namespace Parallilos
     #define PARALLILOS_VERSION_MINOR 1
     #define PARALLILOS_VERSION_PATCH 0
 
-    // define the best way to inline given a compiler
+    template<typename T>
+    inline T* add_arrays(const T* a, const T* b, T* r, const size_t n);
+
+    template<typename T>
+    inline T* sub_arrays(const T* a, const T* b, T* r, const size_t n);
+
+    template<typename T>
+    inline T* mul_arrays(const T* a, const T* b, T* r, const size_t n);
+
+    template<typename T>
+    inline T* div_arrays(const T* a, const T* b, T* r, const size_t n);
+
+    template<typename T>
+    inline T* sqrt_array(const T* a, T* r, const size_t n);
+  }
+// --Parallilos library: backend--------------------------------------------------------------------
+  namespace Backend
+  {
+    // define which instruction set is supported
+    // define the best way to inline given the compiler
     #if defined(__GNUC__)
       #define PARALLILOS_COMPILER_SUPPORTS_SSE_AVX
       #define PARALLILOS_COMPILER_SUPPORTS_NEON
@@ -76,7 +98,10 @@ namespace Parallilos
       #define PARALLILOS_COMPILER_SUPPORTS_NEON
       #define PARALLILOS_INLINE __forceinline
     #else
-      #warning "warning: Parallilos: your compiler is not supported."
+      #define PARALLILOS_INLINE inline
+      #if __cplusplus >= 202302L
+        #warning "warning: Parallilos: your compiler is not supported."
+      #endif
     #endif
   }
 }
@@ -100,7 +125,9 @@ namespace Parallilos
     #include <immintrin.h>
   #elif (defined(__ARM_NEON) || defined(__ARM_NEON__)) && defined(PARALLILOS_COMPILER_SUPPORTS_NEON)
     #define PARALLILOS_NO_PARALLELISM
-    #warning "warning: Parallilos: ARM Neon has not been implemented yet."
+    #if __cplusplus >= 202302L
+      #warning "warning: Parallilos: ARM Neon has not been implemented yet."
+    #endif
     //#define PARALLILOS_USE_PARALLELISM
     #ifdef __ARM_ARCH_64
       //#define PARALLILOS_USE_NEON64
@@ -111,6 +138,9 @@ namespace Parallilos
     #endif
   #else
     #define PARALLILOS_NO_PARALLELISM
+    #if __cplusplus >= 202302L
+      #warning "warning: Parallilos: no SIMD instruction set used, sequential fallback used."
+    #endif
   #endif
 // --Parallilos library: backend--------------------------------------------------------------------
 namespace Parallilos
@@ -129,20 +159,20 @@ namespace Parallilos
       #define PARALLILOS_SET1_PS      _mm512_set1_ps(value)
       #define PARALLILOS_SETZERO_PD   _mm512_setzero_pd()
       #define PARALLILOS_SETZERO_PS   _mm512_setzero_ps()
-      #define PARALLILOS_MUL_PD       _mm512_mul_pd(A, B)
-      #define PARALLILOS_MUL_PS       _mm512_mul_ps(A, B)
-      #define PARALLILOS_ADD_PD       _mm512_add_pd(A, B)
-      #define PARALLILOS_ADD_PS       _mm512_add_ps(A, B)
-      #define PARALLILOS_SUB_PD       _mm512_sub_pd(A, B)
-      #define PARALLILOS_SUB_PS       _mm512_sub_ps(A, B)
-      #define PARALLILOS_DIV_PD       _mm512_div_pd(A, B)
-      #define PARALLILOS_DIV_PS       _mm512_div_ps(A, B)
-      #define PARALLILOS_SQRT_PD      _mm512_sqrt_pd(A)
-      #define PARALLILOS_SQRT_PS      _mm512_sqrt_ps(A)
-      #define PARALLILOS_MULADD_PD    _mm512_fmadd_pd(A, B, C)
-      #define PARALLILOS_MULADD_PS    _mm512_fmadd_ps(A, B, C)
-      #define PARALLILOS_NEGMULADD_PD _mm512_fnmadd_pd(A, B, C)
-      #define PARALLILOS_NEGMULADD_PS _mm512_fnmadd_ps(A, B, C)
+      #define PARALLILOS_MUL_PD       _mm512_mul_pd(a, b)
+      #define PARALLILOS_MUL_PS       _mm512_mul_ps(a, b)
+      #define PARALLILOS_ADD_PD       _mm512_add_pd(a, b)
+      #define PARALLILOS_ADD_PS       _mm512_add_ps(a, b)
+      #define PARALLILOS_SUB_PD       _mm512_sub_pd(a, b)
+      #define PARALLILOS_SUB_PS       _mm512_sub_ps(a, b)
+      #define PARALLILOS_DIV_PD       _mm512_div_pd(a, b)
+      #define PARALLILOS_DIV_PS       _mm512_div_ps(a, b)
+      #define PARALLILOS_SQRT_PD      _mm512_sqrt_pd(a)
+      #define PARALLILOS_SQRT_PS      _mm512_sqrt_ps(a)
+      #define PARALLILOS_MULADD_PD    _mm512_fmadd_pd(a, b, c)
+      #define PARALLILOS_MULADD_PS    _mm512_fmadd_ps(a, b, c)
+      #define PARALLILOS_NEGMULADD_PD _mm512_fnmadd_pd(a, b, c)
+      #define PARALLILOS_NEGMULADD_PS _mm512_fnmadd_ps(a, b, c)
     #elif defined(PARALLILOS_USE_AVX2) || defined(PARALLILOS_USE_AVX)
       #define PARALLILOS_TYPE_PD      __m256d
       #define PARALLILOS_TYPE_PS      __m256
@@ -154,20 +184,20 @@ namespace Parallilos
       #define PARALLILOS_SET1_PS      _mm256_set1_ps(value)
       #define PARALLILOS_SETZERO_PD   _mm256_setzero_pd()
       #define PARALLILOS_SETZERO_PS   _mm256_setzero_ps()
-      #define PARALLILOS_MUL_PD       _mm256_mul_pd(A, B)
-      #define PARALLILOS_MUL_PS       _mm256_mul_ps(A, B)
-      #define PARALLILOS_ADD_PD       _mm256_add_pd(A, B)
-      #define PARALLILOS_ADD_PS       _mm256_add_ps(A, B)
-      #define PARALLILOS_SUB_PD       _mm256_sub_pd(A, B)
-      #define PARALLILOS_SUB_PS       _mm256_sub_ps(A, B)
-      #define PARALLILOS_DIV_PD       _mm256_div_pd(A, B)
-      #define PARALLILOS_DIV_PS       _mm256_div_ps(A, B)
-      #define PARALLILOS_SQRT_PD      _mm256_sqrt_pd(A)
-      #define PARALLILOS_SQRT_PS      _mm256_sqrt_ps(A)
-      #define PARALLILOS_MULADD_PD    _mm256_fmadd_pd(A, B, C)
-      #define PARALLILOS_MULADD_PS    _mm256_fmadd_ps(A, B, C)
-      #define PARALLILOS_NEGMULADD_PD _mm256_fnmadd_pd(A, B, C)
-      #define PARALLILOS_NEGMULADD_PS _mm256_fnmadd_ps(A, B, C)
+      #define PARALLILOS_MUL_PD       _mm256_mul_pd(a, b)
+      #define PARALLILOS_MUL_PS       _mm256_mul_ps(a, b)
+      #define PARALLILOS_ADD_PD       _mm256_add_pd(a, b)
+      #define PARALLILOS_ADD_PS       _mm256_add_ps(a, b)
+      #define PARALLILOS_SUB_PD       _mm256_sub_pd(a, b)
+      #define PARALLILOS_SUB_PS       _mm256_sub_ps(a, b)
+      #define PARALLILOS_DIV_PD       _mm256_div_pd(a, b)
+      #define PARALLILOS_DIV_PS       _mm256_div_ps(a, b)
+      #define PARALLILOS_SQRT_PD      _mm256_sqrt_pd(a)
+      #define PARALLILOS_SQRT_PS      _mm256_sqrt_ps(a)
+      #define PARALLILOS_MULADD_PD    _mm256_fmadd_pd(a, b, c)
+      #define PARALLILOS_MULADD_PS    _mm256_fmadd_ps(a, b, c)
+      #define PARALLILOS_NEGMULADD_PD _mm256_fnmadd_pd(a, b, c)
+      #define PARALLILOS_NEGMULADD_PS _mm256_fnmadd_ps(a, b, c)
     #elif defined(PARALLILOS_USE_SSE)
       #define PARALLILOS_TYPE_PD      __m128d
       #define PARALLILOS_TYPE_PS      __m128
@@ -179,20 +209,20 @@ namespace Parallilos
       #define PARALLILOS_SET1_PS      _mm_set1_ps(value)
       #define PARALLILOS_SETZERO_PD   _mm_setzero_pd()
       #define PARALLILOS_SETZERO_PS   _mm_setzero_ps()
-      #define PARALLILOS_MUL_PD       _mm_mul_pd(A, B)
-      #define PARALLILOS_MUL_PS       _mm_mul_ps(A, B)
-      #define PARALLILOS_ADD_PD       _mm_add_pd(A, B)
-      #define PARALLILOS_ADD_PS       _mm_add_ps(A, B)
-      #define PARALLILOS_SUB_PD       _mm_sub_pd(A, B)
-      #define PARALLILOS_SUB_PS       _mm_sub_ps(A, B)
-      #define PARALLILOS_DIV_PD       _mm_div_pd(A, B)
-      #define PARALLILOS_DIV_PS       _mm_div_ps(A, B)
-      #define PARALLILOS_SQRT_PD      _mm_sqrt_pd(A)
-      #define PARALLILOS_SQRT_PS      _mm_sqrt_ps(A)
-      #define PARALLILOS_MULADD_PD    _mm_add_pd(_mm_mul_pd(A, B), C)
-      #define PARALLILOS_MULADD_PS    _mm_add_ps(_mm_mul_ps(A, B), C)
-      #define PARALLILOS_NEGMULADD_PD _mm_sub_pd(C, _mm_mul_pd(A, B))
-      #define PARALLILOS_NEGMULADD_PS _mm_sub_ps(C, _mm_mul_ps(A, B))
+      #define PARALLILOS_MUL_PD       _mm_mul_pd(a, b)
+      #define PARALLILOS_MUL_PS       _mm_mul_ps(a, b)
+      #define PARALLILOS_ADD_PD       _mm_add_pd(a, b)
+      #define PARALLILOS_ADD_PS       _mm_add_ps(a, b)
+      #define PARALLILOS_SUB_PD       _mm_sub_pd(a, b)
+      #define PARALLILOS_SUB_PS       _mm_sub_ps(a, b)
+      #define PARALLILOS_DIV_PD       _mm_div_pd(a, b)
+      #define PARALLILOS_DIV_PS       _mm_div_ps(a, b)
+      #define PARALLILOS_SQRT_PD      _mm_sqrt_pd(a)
+      #define PARALLILOS_SQRT_PS      _mm_sqrt_ps(a)
+      #define PARALLILOS_MULADD_PD    _mm_add_pd(_mm_mul_pd(a, b), c)
+      #define PARALLILOS_MULADD_PS    _mm_add_ps(_mm_mul_ps(a, b), c)
+      #define PARALLILOS_NEGMULADD_PD _mm_sub_pd(c, _mm_mul_pd(a, b))
+      #define PARALLILOS_NEGMULADD_PS _mm_sub_ps(c, _mm_mul_ps(a, b))
     #endif
   }
 // --Parallilos library: frontend-------------------------------------------------------------------
@@ -214,16 +244,24 @@ namespace Parallilos
     // define a standard API to use SIMD intrinsics
     #ifdef PARALLILOS_USE_PARALLELISM
       template<typename T>
-      struct simd_get_type;
+      struct simd_properties;
 
       template<>
-      struct simd_get_type<double> {
+      struct simd_properties<double> {
         using type = PARALLILOS_TYPE_PD;
+        static constexpr size_t size = sizeof(type) / sizeof(double);
+        static size_t iterations(const size_t n) {
+          return n / size;
+        }
       };
 
-      template<>
-      struct simd_get_type<float> {
-        using type = PARALLILOS_TYPE_PS;
+      template <>
+      struct simd_properties<float> {
+          using type = PARALLILOS_TYPE_PS;
+          static constexpr size_t size = sizeof(type) / sizeof(float);
+          static size_t iterations(const size_t n) {
+              return n / size;
+          }
       };
 
       template<typename T>
@@ -271,76 +309,186 @@ namespace Parallilos
         return PARALLILOS_SET1_PS;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_mul(PARALLILOS_TYPE_PD A, PARALLILOS_TYPE_PD B)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_mul(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b)
       {
         return PARALLILOS_MUL_PD;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_mul(PARALLILOS_TYPE_PS A, PARALLILOS_TYPE_PS B)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_mul(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b)
       {
         return PARALLILOS_MUL_PS;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_add(PARALLILOS_TYPE_PD A, PARALLILOS_TYPE_PD B)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_add(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b)
       {
         return PARALLILOS_ADD_PD;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_add(PARALLILOS_TYPE_PS A, PARALLILOS_TYPE_PS B)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_add(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b)
       {
         return PARALLILOS_ADD_PS;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_sub(PARALLILOS_TYPE_PD A, PARALLILOS_TYPE_PD B)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_sub(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b)
       {
         return PARALLILOS_SUB_PD;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_sub(PARALLILOS_TYPE_PS A, PARALLILOS_TYPE_PS B)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_sub(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b)
       {
         return PARALLILOS_SUB_PS;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_div(PARALLILOS_TYPE_PD A, PARALLILOS_TYPE_PD B)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_div(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b)
       {
         return PARALLILOS_DIV_PD;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_div(PARALLILOS_TYPE_PS A, PARALLILOS_TYPE_PS B)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_div(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b)
       {
         return PARALLILOS_DIV_PS;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_sqrt(PARALLILOS_TYPE_PD A)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_sqrt(PARALLILOS_TYPE_PD a)
       {
         return PARALLILOS_SQRT_PD;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_sqrt(PARALLILOS_TYPE_PS A)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_sqrt(PARALLILOS_TYPE_PS a)
       {
         return PARALLILOS_SQRT_PS;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_muladd(PARALLILOS_TYPE_PD A, PARALLILOS_TYPE_PD B, PARALLILOS_TYPE_PD C)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_muladd(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b, PARALLILOS_TYPE_PD c)
       {
         return PARALLILOS_MULADD_PD;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_muladd(PARALLILOS_TYPE_PS A, PARALLILOS_TYPE_PS B, PARALLILOS_TYPE_PS C)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_muladd(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b, PARALLILOS_TYPE_PS c)
       {
         return PARALLILOS_MULADD_PS;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_nmuladd(PARALLILOS_TYPE_PD A, PARALLILOS_TYPE_PD B, PARALLILOS_TYPE_PD C)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_nmuladd(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b, PARALLILOS_TYPE_PD c)
       {
         return PARALLILOS_NEGMULADD_PD;
       }
 
-      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_nmuladd(PARALLILOS_TYPE_PS A, PARALLILOS_TYPE_PS B, PARALLILOS_TYPE_PS C)
+      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_nmuladd(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b, PARALLILOS_TYPE_PS c)
       {
         return PARALLILOS_NEGMULADD_PS;
       }
     #endif
+
+    template<typename T>
+    T* add_arrays(const T* a, const T* b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_add(simd_loadu(a+k), simd_loadu(b+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a[k] + b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* sub_arrays(const T* a, const T* b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_sub(simd_loadu(a+k), simd_loadu(b+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a[k] - b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* mul_arrays(const T* a, const T* b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_mul(simd_loadu(a+k), simd_loadu(b+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a[k] * b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* div_arrays(const T* a, const T* b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_div(simd_loadu(a+k), simd_loadu(b+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a[k] / b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* sqrt_array(const T* a, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_sqrt(simd_loadu(a+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = std::sqrt(a[k]);
+      }
+
+      return r;
+    }
   }
 // --Parallilos library: backend--------------------------------------------------------------------
   namespace Backend
