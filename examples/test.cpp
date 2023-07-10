@@ -53,9 +53,9 @@ int main()
     std::cout << c4[k] << ' ';
   std::cout << std::endl;
   
-  std::cout << PARALLILOS_EXTENDED_INSTRUCTION_SET << '\n';
-  const int n = 10;
+  std::cout << "SIMD instruction set: " << PARALLILOS_EXTENDED_INSTRUCTION_SET << '\n';
   #ifdef PARALLILOS_USE_PARALLELISM
+  const int n = 10;
   std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n);
   #endif
 }

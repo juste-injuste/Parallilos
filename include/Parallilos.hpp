@@ -39,6 +39,8 @@ facilitate generic parallelism.
 // --necessary standard libraries-------------------------------------------------------------------
 #include <cstddef> // for size_t
 #include <cmath>   // for std::sqrt
+#include <cstdlib> // for std::malloc or std::aligned_malloc (if c++17 and newer)
+#define __AVX512F__
 // --Parallilos library-----------------------------------------------------------------------------
 namespace Parallilos
 {
@@ -51,18 +53,55 @@ namespace Parallilos
     #define PARALLILOS_VERSION_MINOR 1
     #define PARALLILOS_VERSION_PATCH 0
 
+    // [r] = [a] + [b]
     template<typename T>
     inline T* add_arrays(const T* a, const T* b, T* r, const size_t n);
 
+    // [r] = a + [b]
+    template<typename T>
+    inline T* add_arrays(const T a, const T* b, T* r, const size_t n);
+
+    // [r] = [a] + b
+    template<typename T>
+    inline T* add_arrays(const T* a, const T b, T* r, const size_t n);
+
+    // [r] = [a] - [b]
     template<typename T>
     inline T* sub_arrays(const T* a, const T* b, T* r, const size_t n);
 
+    // [r] = a - [b]
+    template<typename T>
+    inline T* sub_arrays(const T a, const T* b, T* r, const size_t n);
+
+    // [r] = [a] - b
+    template<typename T>
+    inline T* sub_arrays(const T* a, const T b, T* r, const size_t n);
+
+    // [r] = [a] * [b]
     template<typename T>
     inline T* mul_arrays(const T* a, const T* b, T* r, const size_t n);
 
+    // [r] = a * [b]
+    template<typename T>
+    inline T* mul_arrays(const T a, const T* b, T* r, const size_t n);
+
+    // [r] = [a] * b
+    template<typename T>
+    inline T* mul_arrays(const T* a, const T b, T* r, const size_t n);
+
+    // [r] = [a] / [b]
     template<typename T>
     inline T* div_arrays(const T* a, const T* b, T* r, const size_t n);
 
+    // [r] = a / [b]
+    template<typename T>
+    inline T* div_arrays(const T a, const T* b, T* r, const size_t n);
+
+    // [r] = [a] / b
+    template<typename T>
+    inline T* div_arrays(const T* a, const T b, T* r, const size_t n);
+
+    // [r] = sqrt([a])
     template<typename T>
     inline T* sqrt_array(const T* a, T* r, const size_t n);
   }
@@ -110,18 +149,22 @@ namespace Parallilos
   #if defined(__AVX512F__) && defined(PARALLILOS_COMPILER_SUPPORTS_SSE_AVX)
     #define PARALLILOS_USE_PARALLELISM
     #define PARALLILOS_USE_AVX512F
+    #define PARALLILOS_INTEL
     #include <immintrin.h>
   #elif defined(__AVX2__) && defined(PARALLILOS_COMPILER_SUPPORTS_SSE_AVX)
     #define PARALLILOS_USE_PARALLELISM
     #define PARALLILOS_USE_AVX2
+    #define PARALLILOS_INTEL
     #include <immintrin.h>
   #elif defined(__AVX__) && defined(PARALLILOS_COMPILER_SUPPORTS_SSE_AVX)
     #define PARALLILOS_USE_PARALLELISM
     #define PARALLILOS_USE_AVX
+    #define PARALLILOS_INTEL
     #include <immintrin.h>
   #elif defined(__SSE__) && defined(PARALLILOS_COMPILER_SUPPORTS_SSE_AVX)
     #define PARALLILOS_USE_PARALLELISM
     #define PARALLILOS_USE_SSE
+    #define PARALLILOS_INTEL
     #include <immintrin.h>
   #elif (defined(__ARM_NEON) || defined(__ARM_NEON__)) && defined(PARALLILOS_COMPILER_SUPPORTS_NEON)
     #define PARALLILOS_NO_PARALLELISM
@@ -153,6 +196,8 @@ namespace Parallilos
       #define PARALLILOS_TYPE_PS      __m512
       #define PARALLILOS_LOADU_PD     _mm512_loadu_pd(data)
       #define PARALLILOS_LOADU_PS     _mm512_loadu_ps(data)
+      #define PARALLILOS_LOAD_PD      _mm512_load_pd(data)
+      #define PARALLILOS_LOAD_PS      _mm512_load_ps(data)
       #define PARALLILOS_STOREU_PD    _mm512_storeu_pd((void*)addr, data)
       #define PARALLILOS_STOREU_PS    _mm512_storeu_ps((void*)addr, data)
       #define PARALLILOS_SET1_PD      _mm512_set1_pd(value)
@@ -178,6 +223,8 @@ namespace Parallilos
       #define PARALLILOS_TYPE_PS      __m256
       #define PARALLILOS_LOADU_PD     _mm256_loadu_pd(data)
       #define PARALLILOS_LOADU_PS     _mm256_loadu_ps(data)
+      #define PARALLILOS_LOAD_PD      _mm256_load_pd(data)
+      #define PARALLILOS_LOAD_PS      _mm256_load_ps(data)
       #define PARALLILOS_STOREU_PD    _mm256_storeu_pd(addr, data)
       #define PARALLILOS_STOREU_PS    _mm256_storeu_ps(addr, data)
       #define PARALLILOS_SET1_PD      _mm256_set1_pd(value)
@@ -203,6 +250,8 @@ namespace Parallilos
       #define PARALLILOS_TYPE_PS      __m128
       #define PARALLILOS_LOADU_PD     _mm_loadu_pd(data)
       #define PARALLILOS_LOADU_PS     _mm_loadu_ps(data)
+      #define PARALLILOS_LOAD_PD      _mm_load_pd(data)
+      #define PARALLILOS_LOAD_PS      _mm_load_ps(data)
       #define PARALLILOS_STOREU_PD    _mm_storeu_pd(addr, data)
       #define PARALLILOS_STOREU_PS    _mm_storeu_ps(addr, data)
       #define PARALLILOS_SET1_PD      _mm_set1_pd(value)
@@ -228,17 +277,22 @@ namespace Parallilos
 // --Parallilos library: frontend-------------------------------------------------------------------
   inline namespace Frontend
   {
-    // define the used SIMD instruction set
+    // define the used SIMD instruction set and the best SIMD alignment
     #if defined(PARALLILOS_USE_AVX512F)
       #define PARALLILOS_EXTENDED_INSTRUCTION_SET "AVX512"
+      #define PARALLILOS_ALIGNMENT    size_t(64)
     #elif defined(PARALLILOS_USE_AVX2)
       #define PARALLILOS_EXTENDED_INSTRUCTION_SET "AVX2"
+      #define PARALLILOS_ALIGNMENT    size_t(32)
     #elif defined(PARALLILOS_USE_AVX)
       #define PARALLILOS_EXTENDED_INSTRUCTION_SET "AVX"
+      #define PARALLILOS_ALIGNMENT    size_t(32)
     #elif defined(PARALLILOS_USE_SSE)
       #define PARALLILOS_EXTENDED_INSTRUCTION_SET "SSE"
+      #define PARALLILOS_ALIGNMENT    size_t(16)
     #else
       #define PARALLILOS_EXTENDED_INSTRUCTION_SET "no SIMD set available"
+      #define PARALLILOS_ALIGNMENT    size_t(0)
     #endif
 
     // define a standard API to use SIMD intrinsics
@@ -287,6 +341,16 @@ namespace Parallilos
       PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_loadu(const float* data)
       {
         return PARALLILOS_LOADU_PS;
+      }
+
+      PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_load(const double* data)
+      {
+        return PARALLILOS_LOAD_PD;
+      }
+
+      PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_load(const float* data)
+      {
+        return PARALLILOS_LOAD_PS;
       }
         
       PARALLILOS_INLINE void simd_storeu(double* addr, PARALLILOS_TYPE_PD data)
@@ -380,6 +444,36 @@ namespace Parallilos
       }
     #endif
 
+    void* allocate(const size_t size_in_bytes)
+    {
+      const size_t alignment = PARALLILOS_ALIGNMENT;
+      // size_in_bytes must be greater than zero
+      if (size_in_bytes == 0) {
+        return nullptr;
+      }
+
+      void* malloc_ptr;
+      void* aligned_ptr;
+          
+      malloc_ptr = std::malloc(size_in_bytes + PARALLILOS_ALIGNMENT);
+      if (!malloc_ptr)
+        return ((void *) 0);
+
+      // Align  We have at least sizeof(size_t) space below malloc'd ptr.
+      aligned_ptr = (void*)(size_t(malloc_ptr + PARALLILOS_ALIGNMENT) & ~(PARALLILOS_ALIGNMENT - 1));
+
+      // Store the original pointer just before p
+      ((void**)aligned_ptr)[-1] = malloc_ptr;
+
+      return aligned_ptr;
+    }
+
+    void deallocate(void* addr)
+    {
+      if (addr)
+        free(((void**)addr)[-1]);
+    }
+
     template<typename T>
     T* add_arrays(const T* a, const T* b, T* r, const size_t n)
     {
@@ -397,6 +491,52 @@ namespace Parallilos
       // sequential fallback
       for (; k < n; ++k) {
         r[k] = a[k] + b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* add_arrays(const T a, const T* b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const typename simd_properties<T>::type a_vector = simd_set1(a);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_add(a_vector, simd_loadu(b+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a + b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* add_arrays(const T* a, const T b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const typename simd_properties<T>::type b_vector = simd_set1(b);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_add(simd_loadu(a+k), b_vector));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a[k] + b;
       }
 
       return r;
@@ -425,6 +565,52 @@ namespace Parallilos
     }
 
     template<typename T>
+    T* sub_arrays(const T a, const T* b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const typename simd_properties<T>::type a_vector = simd_set1(a);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_sub(a_vector, simd_loadu(b+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a - b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* sub_arrays(const T* a, const T b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const typename simd_properties<T>::type b_vector = simd_set1(b);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_sub(simd_loadu(a+k), b_vector));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a[k] - b;
+      }
+
+      return r;
+    }
+
+    template<typename T>
     T* mul_arrays(const T* a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
@@ -447,6 +633,52 @@ namespace Parallilos
     }
 
     template<typename T>
+    T* mul_arrays(const T a, const T* b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const typename simd_properties<T>::type a_vector = simd_set1(a);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_mul(a_vector, simd_loadu(b+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a * b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* mul_arrays(const T* a, const T b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const typename simd_properties<T>::type b_vector = simd_set1(b);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_mul(simd_loadu(a+k), b_vector));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a[k] * b;
+      }
+
+      return r;
+    }
+
+    template<typename T>
     T* div_arrays(const T* a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
@@ -463,6 +695,52 @@ namespace Parallilos
       // sequential fallback
       for (; k < n; ++k) {
         r[k] = a[k] / b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* div_arrays(const T a, const T* b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const typename simd_properties<T>::type a_vector = simd_set1(a);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_div(a_vector, simd_loadu(b+k)));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a / b[k];
+      }
+
+      return r;
+    }
+
+    template<typename T>
+    T* div_arrays(const T* a, const T b, T* r, const size_t n)
+    {
+      size_t k = 0;
+
+      // parallel addition using SIMD
+      #ifdef PARALLILOS_USE_PARALLELISM
+        const typename simd_properties<T>::type b_vector = simd_set1(b);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        for (size_t i = 0; i < iterations; ++i, k+=size) {
+          simd_storeu(r+k, simd_div(simd_loadu(a+k), b_vector));
+        }
+      #endif
+
+      // sequential fallback
+      for (; k < n; ++k) {
+        r[k] = a[k] / b;
       }
 
       return r;
