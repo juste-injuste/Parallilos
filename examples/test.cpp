@@ -1,8 +1,8 @@
-#include "../include/Parallilos.hpp"
 #include <cstddef>
 #include <iostream>
 #include <vector>
 #include <array>
+#include "../include/Parallilos.hpp"
 
 int main()
 {
@@ -56,6 +56,7 @@ int main()
   std::cout << "SIMD instruction set: " << PARALLILOS_EXTENDED_INSTRUCTION_SET << '\n';
   #ifdef PARALLILOS_USE_PARALLELISM
   const int n = 10;
-  std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n);
+  std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
   #endif
 }
+// -mno-avx512f -mno-avx2 -mno-avx -mno-sse4.2 -mno-sse4.1 -mno-ssse3 -mno-sse3 -mno-sse2
