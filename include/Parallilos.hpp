@@ -42,6 +42,8 @@ facilitate generic parallelism.
 #include <cstdlib> // for std::malloc, std::free
 #include <cstdint>
 #include <type_traits>
+#include <limits>
+#define __AVX512F__
 // --Parallilos library-----------------------------------------------------------------------------
 namespace Parallilos
 {
@@ -162,7 +164,7 @@ namespace Parallilos
     // load a vector from unaligned data
     template<typename T, typename V = typename simd_properties<T>::type>
     PARALLILOS_INLINE V simd_loadu(const T* data);
-    
+
     // load a vector from aligned data
     template<typename T, typename V = typename simd_properties<T>::type>
     PARALLILOS_INLINE V simd_loada(const T* data);
@@ -348,160 +350,217 @@ namespace Parallilos
 
     // define the best SIMD intrinsics to use
     #if defined(PARALLILOS_USE_AVX512)
-      #define PARALLILOS_TYPE_PS    __m512
-      #define PARALLILOS_LOADU_PS   _mm512_loadu_ps(data)
-      #define PARALLILOS_LOADA_PS   _mm512_load_ps(data)
-      #define PARALLILOS_STOREU_PS  _mm512_storeu_ps((void*)addr, data)
-      #define PARALLILOS_STOREA_PS  _mm512_store_ps((void*)addr, data)
-      #define PARALLILOS_SETVAL_PS  _mm512_set1_ps(value)
-      #define PARALLILOS_SETZERO_PS _mm512_setzero_ps()
-      #define PARALLILOS_MUL_PS     _mm512_mul_ps(a, b)
-      #define PARALLILOS_ADD_PS     _mm512_add_ps(a, b)
-      #define PARALLILOS_SUB_PS     _mm512_sub_ps(a, b)
-      #define PARALLILOS_DIV_PS     _mm512_div_ps(a, b)
-      #define PARALLILOS_SQRT_PS    _mm512_sqrt_ps(a)
-      #define PARALLILOS_ADDMUL_PS  _mm512_fmadd_ps(b, c, a)
-      #define PARALLILOS_SUBMUL_PS  _mm512_fnmadd_ps(a, b, c)
-      #define PARALLILOS_TYPE_PD    __m512d
-      #define PARALLILOS_LOADU_PD   _mm512_loadu_pd(data)
-      #define PARALLILOS_LOADA_PD   _mm512_load_pd(data)
-      #define PARALLILOS_STOREU_PD  _mm512_storeu_pd((void*)addr, data)
-      #define PARALLILOS_STOREA_PD  _mm512_store_pd((void*)addr, data)
-      #define PARALLILOS_SETVAL_PD  _mm512_set1_pd(value)
-      #define PARALLILOS_SETZERO_PD _mm512_setzero_pd()
-      #define PARALLILOS_MUL_PD     _mm512_mul_pd(a, b)
-      #define PARALLILOS_ADD_PD     _mm512_add_pd(a, b)
-      #define PARALLILOS_SUB_PD     _mm512_sub_pd(a, b)
-      #define PARALLILOS_DIV_PD     _mm512_div_pd(a, b)
-      #define PARALLILOS_SQRT_PD    _mm512_sqrt_pd(a)
-      #define PARALLILOS_ADDMUL_PD  _mm512_fmadd_pd(b, c, a)
-      #define PARALLILOS_SUBMUL_PD  _mm512_fnmadd_pd(a, b, c)
-    #elif defined(PARALLILOS_USE_AVX2) || defined(PARALLILOS_USE_AVX)
-      #define PARALLILOS_TYPE_PD    __m256d
-      #define PARALLILOS_TYPE_PS    __m256
-      #define PARALLILOS_LOADU_PD   _mm256_loadu_pd(data)
-      #define PARALLILOS_LOADU_PS   _mm256_loadu_ps(data)
-      #define PARALLILOS_LOADA_PD   _mm256_load_pd(data)
-      #define PARALLILOS_LOADA_PS   _mm256_load_ps(data)
-      #define PARALLILOS_STOREU_PD  _mm256_storeu_pd(addr, data)
-      #define PARALLILOS_STOREU_PS  _mm256_storeu_ps(addr, data)
-      #define PARALLILOS_STOREA_PD  _mm256_store_pd(addr, data)
-      #define PARALLILOS_STOREA_PS  _mm256_store_ps(addr, data)
-      #define PARALLILOS_SETVAL_PD  _mm256_set1_pd(value)
-      #define PARALLILOS_SETVAL_PS  _mm256_set1_ps(value)
-      #define PARALLILOS_SETZERO_PD _mm256_setzero_pd()
-      #define PARALLILOS_SETZERO_PS _mm256_setzero_ps()
-      #define PARALLILOS_MUL_PD     _mm256_mul_pd(a, b)
-      #define PARALLILOS_MUL_PS     _mm256_mul_ps(a, b)
-      #define PARALLILOS_ADD_PD     _mm256_add_pd(a, b)
-      #define PARALLILOS_ADD_PS     _mm256_add_ps(a, b)
-      #define PARALLILOS_SUB_PD     _mm256_sub_pd(a, b)
-      #define PARALLILOS_SUB_PS     _mm256_sub_ps(a, b)
-      #define PARALLILOS_DIV_PD     _mm256_div_pd(a, b)
-      #define PARALLILOS_DIV_PS     _mm256_div_ps(a, b)
-      #define PARALLILOS_SQRT_PD    _mm256_sqrt_pd(a)
-      #define PARALLILOS_SQRT_PS    _mm256_sqrt_ps(a)
-      #define PARALLILOS_ADDMUL_PD  _mm256_fmadd_pd(b, c, a)
-      #define PARALLILOS_ADDMUL_PS  _mm256_fmadd_ps(b, c, a)
-      #define PARALLILOS_SUBMUL_PD  _mm256_fnmadd_pd(a, b, c)
-      #define PARALLILOS_SUBMUL_PS  _mm256_fnmadd_ps(a, b, c)
-    #elif defined(PARALLILOS_USE_SSE)
-      #define PARALLILOS_TYPE_PS      __m128
-      #define PARALLILOS_LOADU_PS     _mm_loadu_ps(data)
-      #define PARALLILOS_LOADA_PS     _mm_load_ps(data)
-      #define PARALLILOS_STOREU_PS    _mm_storeu_ps(addr, data)
-      #define PARALLILOS_STOREA_PS    _mm_store_ps(addr, data)
-      #define PARALLILOS_SETVAL_PS    _mm_set1_ps(value)
-      #define PARALLILOS_SETZERO_PS   _mm_setzero_ps()
-      #define PARALLILOS_MUL_PS       _mm_mul_ps(a, b)
-      #define PARALLILOS_ADD_PS       _mm_add_ps(a, b)
-      #define PARALLILOS_SUB_PS       _mm_sub_ps(a, b)
-      #define PARALLILOS_DIV_PS       _mm_div_ps(a, b)
-      #define PARALLILOS_SQRT_PS      _mm_sqrt_ps(a)
-      #define PARALLILOS_ADDMUL_PS    _mm_add_ps(a, _mm_mul_ps(b, c))
-      #define PARALLILOS_SUBMUL_PS    _mm_sub_ps(a, _mm_mul_ps(b, c))
+      #define PARALLILOS_TYPE_F32      __m512
+      #define PARALLILOS_LOADU_F32     _mm512_loadu_ps(data)
+      #define PARALLILOS_LOADA_F32     _mm512_load_ps(data)
+      #define PARALLILOS_STOREU_F32    _mm512_storeu_ps((void*)addr, data)
+      #define PARALLILOS_STOREA_F32    _mm512_store_ps((void*)addr, data)
+      #define PARALLILOS_SETVAL_F32    _mm512_set1_ps(value)
+      #define PARALLILOS_SETZERO_F32   _mm512_setzero_ps()
+      #define PARALLILOS_MUL_F32       _mm512_mul_ps(a, b)
+      #define PARALLILOS_ADD_F32       _mm512_add_ps(a, b)
+      #define PARALLILOS_SUB_F32       _mm512_sub_ps(a, b)
+      #define PARALLILOS_DIV_F32       _mm512_div_ps(a, b)
+      #define PARALLILOS_SQRT_F32      _mm512_sqrt_ps(a)
+      #define PARALLILOS_ADDMUL_F32    _mm512_fmadd_ps(b, c, a)
+      #define PARALLILOS_SUBMUL_F32    _mm512_fnmadd_ps(a, b, c)
+      #define PARALLILOS_TYPE_F64      __m512d
+      #define PARALLILOS_LOADU_F64     _mm512_loadu_pd(data)
+      #define PARALLILOS_LOADA_F64     _mm512_load_pd(data)
+      #define PARALLILOS_STOREU_F64    _mm512_storeu_pd((void*)addr, data)
+      #define PARALLILOS_STOREA_F64    _mm512_store_pd((void*)addr, data)
+      #define PARALLILOS_SETVAL_F64    _mm512_set1_pd(value)
+      #define PARALLILOS_SETZERO_F64   _mm512_setzero_pd()
+      #define PARALLILOS_MUL_F64       _mm512_mul_pd(a, b)
+      #define PARALLILOS_ADD_F64       _mm512_add_pd(a, b)
+      #define PARALLILOS_SUB_F64       _mm512_sub_pd(a, b)
+      #define PARALLILOS_DIV_F64       _mm512_div_pd(a, b)
+      #define PARALLILOS_SQRT_F64      _mm512_sqrt_pd(a)
+      #define PARALLILOS_ADDMUL_F64    _mm512_fmadd_pd(b, c, a)
+      #define PARALLILOS_SUBMUL_F64    _mm512_fnmadd_pd(a, b, c)
+      #define PARALLILOS_TYPE_I32      __m512i
+      #define PARALLILOS_LOADU_I32     _mm512_loadu_si512(data)
+      #define PARALLILOS_LOADA_I32     _mm512_load_si512(data)
+      #define PARALLILOS_STOREU_I32    _mm512_storeu_si512((void*)addr, data)
+      #define PARALLILOS_STOREA_I32    _mm512_store_si512((void*)addr, data)
+      #define PARALLILOS_SETVAL_I32    _mm512_set1_epi32(value)
+      #define PARALLILOS_SETZERO_I32   _mm512_setzero_epi32()
+      #define PARALLILOS_MUL_I32       _mm512_mul_epi32(a, b)
+      #define PARALLILOS_ADD_I32       _mm512_add_epi32(a, b)
+      #define PARALLILOS_SUB_I32       _mm512_sub_epi32(a, b)
+      #define PARALLILOS_DIV_I32       _mm512_cvtps_epi32(_mm512_div_ps(_mm512_cvtepi32_ps(a), _mm512_cvtepi32_ps(b)))
+      #define PARALLILOS_SQRT_I32      _mm512_cvtps_epi32(_mm512_sqrt_ps(_mm512_cvtepi32_ps(a)))
+      #define PARALLILOS_ADDMUL_I32    _mm512_add_epi32(a, _mm512_mul_epi32(b, c))
+      #define PARALLILOS_SUBMUL_I32    _mm512_sub_epi32(a, _mm512_mul_epi32(b, c))
+    #elif defined(PARALLILOS_USE_AVX2)
+      #define PARALLILOS_TYPE_F32      __m256
+      #define PARALLILOS_LOADU_F32     _mm256_loadu_ps(data)
+      #define PARALLILOS_LOADA_F32     _mm256_load_ps(data)
+      #define PARALLILOS_STOREU_F32    _mm256_storeu_ps(addr, data)
+      #define PARALLILOS_STOREA_F32    _mm256_store_ps(addr, data)
+      #define PARALLILOS_SETVAL_F32    _mm256_set1_ps(value)
+      #define PARALLILOS_SETZERO_F32   _mm256_setzero_ps()
+      #define PARALLILOS_MUL_F32       _mm256_mul_ps(a, b)
+      #define PARALLILOS_ADD_F32       _mm256_add_ps(a, b)
+      #define PARALLILOS_SUB_F32       _mm256_sub_ps(a, b)
+      #define PARALLILOS_DIV_F32       _mm256_div_ps(a, b)
+      #define PARALLILOS_SQRT_F32      _mm256_sqrt_ps(a)
+      #define PARALLILOS_ADDMUL_F32    _mm256_fmadd_ps(b, c, a)
+      #define PARALLILOS_SUBMUL_F32    _mm256_fnmadd_ps(a, b, c)
+      #define PARALLILOS_TYPE_F64      __m256d
+      #define PARALLILOS_LOADU_F64     _mm256_loadu_pd(data)
+      #define PARALLILOS_LOADA_F64     _mm256_load_pd(data)
+      #define PARALLILOS_STOREU_F64    _mm256_storeu_pd(addr, data)
+      #define PARALLILOS_STOREA_F64    _mm256_store_pd(addr, data)
+      #define PARALLILOS_SETVAL_F64    _mm256_set1_pd(value)
+      #define PARALLILOS_SETZERO_F64   _mm256_setzero_pd()
+      #define PARALLILOS_MUL_F64       _mm256_mul_pd(a, b)
+      #define PARALLILOS_ADD_F64       _mm256_add_pd(a, b)
+      #define PARALLILOS_SUB_F64       _mm256_sub_pd(a, b)
+      #define PARALLILOS_DIV_F64       _mm256_div_pd(a, b)
+      #define PARALLILOS_SQRT_F64      _mm256_sqrt_pd(a)
+      #define PARALLILOS_ADDMUL_F64    _mm256_fmadd_pd(b, c, a)
+      #define PARALLILOS_SUBMUL_F64    _mm256_fnmadd_pd(a, b, c)
+      #define PARALLILOS_TYPE_I32      __m256i
+      #define PARALLILOS_LOADU_I32     _mm256_loadu_si256(data)
+      #define PARALLILOS_LOADA_I32     _mm256_load_si256(data)
+      #define PARALLILOS_STOREU_I32    _mm256_storeu_si256((void*)addr, data)
+      #define PARALLILOS_STOREA_I32    _mm256_store_si256((void*)addr, data)
+      #define PARALLILOS_SETVAL_I32    _mm256_set1_epi32(value)
+      #define PARALLILOS_SETZERO_I32   _mm256_setzero_si256()
+      #define PARALLILOS_MUL_I32       _mm256_mul_epi32(a, b)
+      #define PARALLILOS_ADD_I32       _mm256_add_epi32(a, b)
+      #define PARALLILOS_SUB_I32       _mm256_sub_epi32(a, b)
+      #define PARALLILOS_DIV_I32       _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
+      #define PARALLILOS_SQRT_I32      _mm256_cvtps_epi32(_mm256_sqrt_ps(_mm256_cvtepi32_ps(a)))
+      #define PARALLILOS_ADDMUL_I32    _mm256_add_epi32(a, _mm256_mul_epi32(b, c))
+      #define PARALLILOS_SUBMUL_I32    _mm256_sub_epi32(a, _mm256_mul_epi32(b, c))
+    #elif defined(PARALLILOS_USE_AVX)
+      #define PARALLILOS_TYPE_F32      __m256
+      #define PARALLILOS_LOADU_F32     _mm256_loadu_ps(data)
+      #define PARALLILOS_LOADA_F32     _mm256_load_ps(data)
+      #define PARALLILOS_STOREU_F32    _mm256_storeu_ps(addr, data)
+      #define PARALLILOS_STOREA_F32    _mm256_store_ps(addr, data)
+      #define PARALLILOS_SETVAL_F32    _mm256_set1_ps(value)
+      #define PARALLILOS_SETZERO_F32   _mm256_setzero_ps()
+      #define PARALLILOS_MUL_F32       _mm256_mul_ps(a, b)
+      #define PARALLILOS_ADD_F32       _mm256_add_ps(a, b)
+      #define PARALLILOS_SUB_F32       _mm256_sub_ps(a, b)
+      #define PARALLILOS_DIV_F32       _mm256_div_ps(a, b)
+      #define PARALLILOS_SQRT_F32      _mm256_sqrt_ps(a)
+      #define PARALLILOS_ADDMUL_F32    _mm256_add_ps(a, _mm256_mul_ps(b, c))
+      #define PARALLILOS_SUBMUL_F32    _mm256_sub_ps(a, _mm256_mul_ps(b, c))
+      #define PARALLILOS_TYPE_F64      __m256d
+      #define PARALLILOS_LOADU_F64     _mm256_loadu_pd(data)
+      #define PARALLILOS_LOADA_F64     _mm256_load_pd(data)
+      #define PARALLILOS_STOREU_F64    _mm256_storeu_pd(addr, data)
+      #define PARALLILOS_STOREA_F64    _mm256_store_pd(addr, data)
+      #define PARALLILOS_SETVAL_F64    _mm256_set1_pd(value)
+      #define PARALLILOS_SETZERO_F64   _mm256_setzero_pd()
+      #define PARALLILOS_MUL_F64       _mm256_mul_pd(a, b)
+      #define PARALLILOS_ADD_F64       _mm256_add_pd(a, b)
+      #define PARALLILOS_SUB_F64       _mm256_sub_pd(a, b)
+      #define PARALLILOS_DIV_F64       _mm256_div_pd(a, b)
+      #define PARALLILOS_SQRT_F64      _mm256_sqrt_pd(a)
+      #define PARALLILOS_ADDMUL_F32    _mm256_add_pd(a, _mm256_mul_pd(b, c))
+      #define PARALLILOS_SUBMUL_F32    _mm256_sub_pd(a, _mm256_mul_pd(b, c))
+    #elif defined(PARALLILOS_USE_SSE4_2) || defined(PARALLILOS_USE_SSE4_1)
+    #elif defined(PARALLILOS_USE_SSSE3)  || defined(PARALLILOS_USE_SSE3)
     #elif defined(PARALLILOS_USE_SSE2)
-      #define PARALLILOS_TYPE_PS      __m128
-      #define PARALLILOS_LOADU_PS     _mm_loadu_ps(data)
-      #define PARALLILOS_LOADA_PS     _mm_load_ps(data)
-      #define PARALLILOS_STOREU_PS    _mm_storeu_ps(addr, data)
-      #define PARALLILOS_STOREA_PS    _mm_store_ps(addr, data)
-      #define PARALLILOS_SETVAL_PS    _mm_set1_ps(value)
-      #define PARALLILOS_SETZERO_PS   _mm_setzero_ps()
-      #define PARALLILOS_MUL_PS       _mm_mul_ps(a, b)
-      #define PARALLILOS_ADD_PS       _mm_add_ps(a, b)
-      #define PARALLILOS_SUB_PS       _mm_sub_ps(a, b)
-      #define PARALLILOS_DIV_PS       _mm_div_ps(a, b)
-      #define PARALLILOS_SQRT_PS      _mm_sqrt_ps(a)
-      #define PARALLILOS_ADDMUL_PS    _mm_add_ps(a, _mm_mul_ps(b, c))
-      #define PARALLILOS_SUBMUL_PS    _mm_sub_ps(a, _mm_mul_ps(b, c))
-      #define PARALLILOS_TYPE_PD      __m128d
-      #define PARALLILOS_LOADU_PD     _mm_loadu_pd(data)
-      #define PARALLILOS_LOADA_PD     _mm_load_pd(data)
-      #define PARALLILOS_STOREU_PD    _mm_storeu_pd(addr, data)
-      #define PARALLILOS_STOREA_PD    _mm_store_pd(addr, data)
-      #define PARALLILOS_SETVAL_PD    _mm_set1_pd(value)
-      #define PARALLILOS_SETZERO_PD   _mm_setzero_pd()
-      #define PARALLILOS_MUL_PD       _mm_mul_pd(a, b)
-      #define PARALLILOS_ADD_PD       _mm_add_pd(a, b)
-      #define PARALLILOS_SUB_PD       _mm_sub_pd(a, b)
-      #define PARALLILOS_DIV_PD       _mm_div_pd(a, b)
-      #define PARALLILOS_SQRT_PD      _mm_sqrt_pd(a)
-      #define PARALLILOS_ADDMUL_PD    _mm_add_pd(a, _mm_mul_pd(b, c))
-      #define PARALLILOS_SUBMUL_PD    _mm_sub_pd(a, _mm_mul_pd(b, c))
-      #define PARALLILOS_TYPE_PI32    __m128i
-      #define PARALLILOS_LOADU_PI32   _mm_loadu_si128((const __m128i*)data)
-      #define PARALLILOS_LOADA_PI32   _mm_load_si128((const __m128i*)data)
-      #define PARALLILOS_STOREU_PI32  _mm_storeu_si128((__m128i*)addr, data)
-      #define PARALLILOS_STOREA_PI32  _mm_store_si128((__m128i*)addr, data)
-      #define PARALLILOS_SETVAL_PI32  _mm_set1_epi32(value)
-      #define PARALLILOS_SETZERO_PI32 _mm_setzero_si128()
-      #define PARALLILOS_MUL_PI32     _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-      #define PARALLILOS_ADD_PI32     _mm_add_epi32(a, b)
-      #define PARALLILOS_SUB_PI32     _mm_sub_epi32(a, b)
-      #define PARALLILOS_DIV_PI32     _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-      #define PARALLILOS_SQRT_PI32    _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
-      #define PARALLILOS_ADDMUL_PI32  _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
-      #define PARALLILOS_SUBMUL_PI32  _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
-    #elif defined(PARALLILOS_USE_SSE3)   || defined(PARALLILOS_USE_SSSE3) \
-       || defined(PARALLILOS_USE_SSE4_1) || defined(PARALLILOS_USE_SSE4_2)
+      #define PARALLILOS_TYPE_F32      __m128
+      #define PARALLILOS_LOADU_F32     _mm_loadu_ps(data)
+      #define PARALLILOS_LOADA_F32     _mm_load_ps(data)
+      #define PARALLILOS_STOREU_F32    _mm_storeu_ps(addr, data)
+      #define PARALLILOS_STOREA_F32    _mm_store_ps(addr, data)
+      #define PARALLILOS_SETVAL_F32    _mm_set1_ps(value)
+      #define PARALLILOS_SETZERO_F32   _mm_setzero_ps()
+      #define PARALLILOS_MUL_F32       _mm_mul_ps(a, b)
+      #define PARALLILOS_ADD_F32       _mm_add_ps(a, b)
+      #define PARALLILOS_SUB_F32       _mm_sub_ps(a, b)
+      #define PARALLILOS_DIV_F32       _mm_div_ps(a, b)
+      #define PARALLILOS_SQRT_F32      _mm_sqrt_ps(a)
+      #define PARALLILOS_ADDMUL_F32    _mm_add_ps(a, _mm_mul_ps(b, c))
+      #define PARALLILOS_SUBMUL_F32    _mm_sub_ps(a, _mm_mul_ps(b, c))
+      #define PARALLILOS_TYPE_F64      __m128d
+      #define PARALLILOS_LOADU_F64     _mm_loadu_pd(data)
+      #define PARALLILOS_LOADA_F64     _mm_load_pd(data)
+      #define PARALLILOS_STOREU_F64    _mm_storeu_pd(addr, data)
+      #define PARALLILOS_STOREA_F64    _mm_store_pd(addr, data)
+      #define PARALLILOS_SETVAL_F64    _mm_set1_pd(value)
+      #define PARALLILOS_SETZERO_F64   _mm_setzero_pd()
+      #define PARALLILOS_MUL_F64       _mm_mul_pd(a, b)
+      #define PARALLILOS_ADD_F64       _mm_add_pd(a, b)
+      #define PARALLILOS_SUB_F64       _mm_sub_pd(a, b)
+      #define PARALLILOS_DIV_F64       _mm_div_pd(a, b)
+      #define PARALLILOS_SQRT_F64      _mm_sqrt_pd(a)
+      #define PARALLILOS_ADDMUL_F64    _mm_add_pd(a, _mm_mul_pd(b, c))
+      #define PARALLILOS_SUBMUL_F64    _mm_sub_pd(a, _mm_mul_pd(b, c))
+      #define PARALLILOS_TYPE_I32      __m128i
+      #define PARALLILOS_LOADU_I32     _mm_loadu_si128((const __m128i*)data)
+      #define PARALLILOS_LOADA_I32     _mm_load_si128((const __m128i*)data)
+      #define PARALLILOS_STOREU_I32    _mm_storeu_si128((__m128i*)addr, data)
+      #define PARALLILOS_STOREA_I32    _mm_store_si128((__m128i*)addr, data)
+      #define PARALLILOS_SETVAL_I32    _mm_set1_epi32(value)
+      #define PARALLILOS_SETZERO_I32   _mm_setzero_si128()
+      #define PARALLILOS_MUL_I32       _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+      #define PARALLILOS_ADD_I32       _mm_add_epi32(a, b)
+      #define PARALLILOS_SUB_I32       _mm_sub_epi32(a, b)
+      #define PARALLILOS_DIV_I32       _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+      #define PARALLILOS_SQRT_I32      _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
+      #define PARALLILOS_ADDMUL_I32    _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+      #define PARALLILOS_SUBMUL_I32    _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+    #elif defined(PARALLILOS_USE_SSE)
+      #define PARALLILOS_TYPE_F32      __m128
+      #define PARALLILOS_LOADU_F32     _mm_loadu_ps(data)
+      #define PARALLILOS_LOADA_F32     _mm_load_ps(data)
+      #define PARALLILOS_STOREU_F32    _mm_storeu_ps(addr, data)
+      #define PARALLILOS_STOREA_F32    _mm_store_ps(addr, data)
+      #define PARALLILOS_SETVAL_F32    _mm_set1_ps(value)
+      #define PARALLILOS_SETZERO_F32   _mm_setzero_ps()
+      #define PARALLILOS_MUL_F32       _mm_mul_ps(a, b)
+      #define PARALLILOS_ADD_F32       _mm_add_ps(a, b)
+      #define PARALLILOS_SUB_F32       _mm_sub_ps(a, b)
+      #define PARALLILOS_DIV_F32       _mm_div_ps(a, b)
+      #define PARALLILOS_SQRT_F32      _mm_sqrt_ps(a)
+      #define PARALLILOS_ADDMUL_F32    _mm_add_ps(a, _mm_mul_ps(b, c))
+      #define PARALLILOS_SUBMUL_F32    _mm_sub_ps(a, _mm_mul_ps(b, c))
     #elif defined(PARALLILOS_USE_NEON) || defined(PARALLILOS_USE_NEON64)
-      #define PARALLILOS_TYPE_PS    float32x4_t
-      #define PARALLILOS_LOADU_PS   vld1q_f32(data)
-      #define PARALLILOS_LOADA_PS   vld1q_f32(data)
-      #define PARALLILOS_STOREU_PS  vst1q_f32(addr, data)
-      #define PARALLILOS_STOREA_PS  vst1q_f32(addr, data)
-      #define PARALLILOS_SETVAL_PS  vdupq_n_f32(value)
-      #define PARALLILOS_SETZERO_PS vdupq_n_f32(0.0f)
-      #define PARALLILOS_MUL_PS     vmulq_f32(a, b)
-      #define PARALLILOS_ADD_PS     vaddq_f32(a, b)
-      #define PARALLILOS_SUB_PS     vsubq_f32(a, b)
-      #define PARALLILOS_DIV_PS     vdivq_f32(a, b)
-      #define PARALLILOS_SQRT_PS    vsqrtq_f32(a)
-      #define PARALLILOS_ADDMUL_PS  vmlaq_f32(a, b, c)
-      #define PARALLILOS_SUBMUL_PS  vmlsq_f32(a, b, c)
-      #define PARALLILOS_TYPE_PD    float64x4_t
-      #define PARALLILOS_LOADU_PD   vld1q_f64(data)
-      #define PARALLILOS_LOADA_PD   vld1q_f64(data)
-      #define PARALLILOS_STOREU_PD  vst1q_f64(addr, data)
-      #define PARALLILOS_STOREA_PD  vst1q_f64(addr, data)
-      #define PARALLILOS_SETVAL_PD  vdupq_n_f64(value)
-      #define PARALLILOS_SETZERO_PD vdupq_n_f64(0.0)
-      #define PARALLILOS_MUL_PD     vmulq_f64(a, b)
-      #define PARALLILOS_ADD_PD     vaddq_f64(a, b)
-      #define PARALLILOS_SUB_PD     vsubq_f64(a, b)
-      #define PARALLILOS_DIV_PD     vdivq_f64(a, b)
-      #define PARALLILOS_SQRT_PD    vsqrtq_f64(a)
-      #define PARALLILOS_ADDMUL_PD  vmlaq_f64(a, b, c)
-      #define PARALLILOS_SUBMUL_PD  vmlsq_f64(a, b, c)
+      #define PARALLILOS_TYPE_F32      float32x4_t
+      #define PARALLILOS_LOADU_F32     vld1q_f32(data)
+      #define PARALLILOS_LOADA_F32     vld1q_f32(data)
+      #define PARALLILOS_STOREU_F32    vst1q_f32(addr, data)
+      #define PARALLILOS_STOREA_F32    vst1q_f32(addr, data)
+      #define PARALLILOS_SETVAL_F32    vdupq_n_f32(value)
+      #define PARALLILOS_SETZERO_F32   vdupq_n_f32(0.0f)
+      #define PARALLILOS_MUL_F32       vmulq_f32(a, b)
+      #define PARALLILOS_ADD_F32       vaddq_f32(a, b)
+      #define PARALLILOS_SUB_F32       vsubq_f32(a, b)
+      #define PARALLILOS_DIV_F32       vdivq_f32(a, b)
+      #define PARALLILOS_SQRT_F32      vsqrtq_f32(a)
+      #define PARALLILOS_ADDMUL_F32    vmlaq_f32(a, b, c)
+      #define PARALLILOS_SUBMUL_F32    vmlsq_f32(a, b, c)
+      #define PARALLILOS_TYPE_F64      float64x4_t
+      #define PARALLILOS_LOADU_F64     vld1q_f64(data)
+      #define PARALLILOS_LOADA_F64     vld1q_f64(data)
+      #define PARALLILOS_STOREU_F64    vst1q_f64(addr, data)
+      #define PARALLILOS_STOREA_F64    vst1q_f64(addr, data)
+      #define PARALLILOS_SETVAL_F64    vdupq_n_f64(value)
+      #define PARALLILOS_SETZERO_F64   vdupq_n_f64(0.0)
+      #define PARALLILOS_MUL_F64       vmulq_f64(a, b)
+      #define PARALLILOS_ADD_F64       vaddq_f64(a, b)
+      #define PARALLILOS_SUB_F64       vsubq_f64(a, b)
+      #define PARALLILOS_DIV_F64       vdivq_f64(a, b)
+      #define PARALLILOS_SQRT_F64      vsqrtq_f64(a)
+      #define PARALLILOS_ADDMUL_F64    vmlaq_f64(a, b, c)
+      #define PARALLILOS_SUBMUL_F64    vmlsq_f64(a, b, c)
     #endif
 
     // define a standard API to use SIMD intrinsics
     #ifdef PARALLILOS_USE_PARALLELISM
-    #ifdef PARALLILOS_TYPE_PD
+    #ifdef PARALLILOS_TYPE_F64
     template<>
     struct simd_properties<double> {
-      using type = PARALLILOS_TYPE_PD;
+      using type = PARALLILOS_TYPE_F64;
       static constexpr size_t size = sizeof(type) / sizeof(float);
       static size_t iterations(const size_t n) {
         return n / size;
@@ -509,88 +568,88 @@ namespace Parallilos
     };
 
     template<>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_setzero<double>(void)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_setzero<double>(void)
     {
-      return PARALLILOS_SETZERO_PD;
+      return PARALLILOS_SETZERO_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_loadu(const double* data)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_loadu(const double* data)
     {
-      return PARALLILOS_LOADU_PD;
+      return PARALLILOS_LOADU_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_loada(const double* data)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_loada(const double* data)
     {
-      return PARALLILOS_LOADA_PD;
+      return PARALLILOS_LOADA_F64;
     }
 
     template <> 
-    PARALLILOS_INLINE void simd_storeu(double* addr, PARALLILOS_TYPE_PD data)
+    PARALLILOS_INLINE void simd_storeu(double* addr, PARALLILOS_TYPE_F64 data)
     {
-      PARALLILOS_STOREU_PD;
+      PARALLILOS_STOREU_F64;
     }
 
     template <>
-    PARALLILOS_INLINE void simd_storea(double* addr, PARALLILOS_TYPE_PD data)
+    PARALLILOS_INLINE void simd_storea(double* addr, PARALLILOS_TYPE_F64 data)
     {
-      PARALLILOS_STOREA_PD;
+      PARALLILOS_STOREA_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_setval(const double value)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_setval(const double value)
     {
-      return PARALLILOS_SETVAL_PD;
+      return PARALLILOS_SETVAL_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_mul(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_mul(PARALLILOS_TYPE_F64 a, PARALLILOS_TYPE_F64 b)
     {
-      return PARALLILOS_MUL_PD;
+      return PARALLILOS_MUL_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_add(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_add(PARALLILOS_TYPE_F64 a, PARALLILOS_TYPE_F64 b)
     {
-      return PARALLILOS_ADD_PD;
+      return PARALLILOS_ADD_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_sub(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_sub(PARALLILOS_TYPE_F64 a, PARALLILOS_TYPE_F64 b)
     {
-      return PARALLILOS_SUB_PD;
+      return PARALLILOS_SUB_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_div(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_div(PARALLILOS_TYPE_F64 a, PARALLILOS_TYPE_F64 b)
     {
-      return PARALLILOS_DIV_PD;
+      return PARALLILOS_DIV_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_sqrt(PARALLILOS_TYPE_PD a)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_sqrt(PARALLILOS_TYPE_F64 a)
     {
-      return PARALLILOS_SQRT_PD;
+      return PARALLILOS_SQRT_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_addmul(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b, PARALLILOS_TYPE_PD c)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_addmul(PARALLILOS_TYPE_F64 a, PARALLILOS_TYPE_F64 b, PARALLILOS_TYPE_F64 c)
     {
-      return PARALLILOS_ADDMUL_PD;
+      return PARALLILOS_ADDMUL_F64;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PD simd_submul(PARALLILOS_TYPE_PD a, PARALLILOS_TYPE_PD b, PARALLILOS_TYPE_PD c)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F64 simd_submul(PARALLILOS_TYPE_F64 a, PARALLILOS_TYPE_F64 b, PARALLILOS_TYPE_F64 c)
     {
-      return PARALLILOS_SUBMUL_PD;
+      return PARALLILOS_SUBMUL_F64;
     }
     #endif
 
-    #ifdef PARALLILOS_TYPE_PS
+    #ifdef PARALLILOS_TYPE_F32
     template <>
     struct simd_properties<float> {
-      using type = PARALLILOS_TYPE_PS;
+      using type = PARALLILOS_TYPE_F32;
       static constexpr size_t size = sizeof(type) / sizeof(float);
       static size_t iterations(const size_t n) {
         return n / size;
@@ -598,88 +657,88 @@ namespace Parallilos
     };
 
     template<>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_setzero<float>(void)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_setzero<float>(void)
     {
-      return PARALLILOS_SETZERO_PS;
+      return PARALLILOS_SETZERO_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_loadu(const float* data)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_loadu(const float* data)
     {
-      return PARALLILOS_LOADU_PS;
+      return PARALLILOS_LOADU_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_loada(const float* data)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_loada(const float* data)
     {
-      return PARALLILOS_LOADA_PS;
+      return PARALLILOS_LOADA_F32;
     }
 
     template <>
-    PARALLILOS_INLINE void simd_storeu(float* addr, PARALLILOS_TYPE_PS data)
+    PARALLILOS_INLINE void simd_storeu(float* addr, PARALLILOS_TYPE_F32 data)
     {
-      PARALLILOS_STOREU_PS;
+      PARALLILOS_STOREU_F32;
     }
 
     template <>
-    PARALLILOS_INLINE void simd_storea(float* addr, PARALLILOS_TYPE_PS data)
+    PARALLILOS_INLINE void simd_storea(float* addr, PARALLILOS_TYPE_F32 data)
     {
-      PARALLILOS_STOREA_PS;
+      PARALLILOS_STOREA_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_setval(const float value)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_setval(const float value)
     {
-      return PARALLILOS_SETVAL_PS;
+      return PARALLILOS_SETVAL_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_mul(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_mul(PARALLILOS_TYPE_F32 a, PARALLILOS_TYPE_F32 b)
     {
-      return PARALLILOS_MUL_PS;
+      return PARALLILOS_MUL_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_add(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_add(PARALLILOS_TYPE_F32 a, PARALLILOS_TYPE_F32 b)
     {
-      return PARALLILOS_ADD_PS;
+      return PARALLILOS_ADD_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_sub(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_sub(PARALLILOS_TYPE_F32 a, PARALLILOS_TYPE_F32 b)
     {
-      return PARALLILOS_SUB_PS;
+      return PARALLILOS_SUB_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_div(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_div(PARALLILOS_TYPE_F32 a, PARALLILOS_TYPE_F32 b)
     {
-      return PARALLILOS_DIV_PS;
+      return PARALLILOS_DIV_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_sqrt(PARALLILOS_TYPE_PS a)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_sqrt(PARALLILOS_TYPE_F32 a)
     {
-      return PARALLILOS_SQRT_PS;
+      return PARALLILOS_SQRT_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_addmul(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b, PARALLILOS_TYPE_PS c)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_addmul(PARALLILOS_TYPE_F32 a, PARALLILOS_TYPE_F32 b, PARALLILOS_TYPE_F32 c)
     {
-      return PARALLILOS_ADDMUL_PS;
+      return PARALLILOS_ADDMUL_F32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PS simd_submul(PARALLILOS_TYPE_PS a, PARALLILOS_TYPE_PS b, PARALLILOS_TYPE_PS c)
+    PARALLILOS_INLINE PARALLILOS_TYPE_F32 simd_submul(PARALLILOS_TYPE_F32 a, PARALLILOS_TYPE_F32 b, PARALLILOS_TYPE_F32 c)
     {
-      return PARALLILOS_SUBMUL_PS;
+      return PARALLILOS_SUBMUL_F32;
     }
     #endif
   
-    #ifdef PARALLILOS_TYPE_PI32
+    #ifdef PARALLILOS_TYPE_I32
     template <>
     struct simd_properties<int32_t> {
-      using type = PARALLILOS_TYPE_PI32;
+      using type = PARALLILOS_TYPE_I32;
       static constexpr size_t size = sizeof(type) / sizeof(int32_t);
       static size_t iterations(const size_t n) {
         return n / size;
@@ -687,81 +746,81 @@ namespace Parallilos
     };
 
     template<>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_setzero<int32_t>(void)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_setzero<int32_t>(void)
     {
-      return PARALLILOS_SETZERO_PI32;
+      return PARALLILOS_SETZERO_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_loadu(const int32_t* data)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_loadu(const int32_t* data)
     {
-      return PARALLILOS_LOADU_PI32;
+      return PARALLILOS_LOADU_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_loada(const int32_t* data)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_loada(const int32_t* data)
     {
-      return PARALLILOS_LOADA_PI32;
+      return PARALLILOS_LOADA_I32;
     }
 
     template <>
-    PARALLILOS_INLINE void simd_storeu(int32_t* addr, PARALLILOS_TYPE_PI32 data)
+    PARALLILOS_INLINE void simd_storeu(int32_t* addr, PARALLILOS_TYPE_I32 data)
     {
-      PARALLILOS_STOREU_PI32;
+      PARALLILOS_STOREU_I32;
     }
 
     template <>
-    PARALLILOS_INLINE void simd_storea(int32_t* addr, PARALLILOS_TYPE_PI32 data)
+    PARALLILOS_INLINE void simd_storea(int32_t* addr, PARALLILOS_TYPE_I32 data)
     {
-      PARALLILOS_STOREA_PI32;
+      PARALLILOS_STOREA_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_setval(const int32_t value)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_setval(const int32_t value)
     {
-      return PARALLILOS_SETVAL_PI32;
+      return PARALLILOS_SETVAL_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_mul(PARALLILOS_TYPE_PI32 a, PARALLILOS_TYPE_PI32 b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_mul(PARALLILOS_TYPE_I32 a, PARALLILOS_TYPE_I32 b)
     {
-      return PARALLILOS_MUL_PI32;
+      return PARALLILOS_MUL_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_add(PARALLILOS_TYPE_PI32 a, PARALLILOS_TYPE_PI32 b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_add(PARALLILOS_TYPE_I32 a, PARALLILOS_TYPE_I32 b)
     {
-      return PARALLILOS_ADD_PI32;
+      return PARALLILOS_ADD_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_sub(PARALLILOS_TYPE_PI32 a, PARALLILOS_TYPE_PI32 b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_sub(PARALLILOS_TYPE_I32 a, PARALLILOS_TYPE_I32 b)
     {
-      return PARALLILOS_SUB_PI32;
+      return PARALLILOS_SUB_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_div(PARALLILOS_TYPE_PI32 a, PARALLILOS_TYPE_PI32 b)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_div(PARALLILOS_TYPE_I32 a, PARALLILOS_TYPE_I32 b)
     {
-      return PARALLILOS_DIV_PI32;
+      return PARALLILOS_DIV_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_sqrt(PARALLILOS_TYPE_PI32 a)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_sqrt(PARALLILOS_TYPE_I32 a)
     {
-      return PARALLILOS_SQRT_PI32;
+      return PARALLILOS_SQRT_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_addmul(PARALLILOS_TYPE_PI32 a, PARALLILOS_TYPE_PI32 b, PARALLILOS_TYPE_PI32 c)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_addmul(PARALLILOS_TYPE_I32 a, PARALLILOS_TYPE_I32 b, PARALLILOS_TYPE_I32 c)
     {
-      return PARALLILOS_ADDMUL_PI32;
+      return PARALLILOS_ADDMUL_I32;
     }
 
     template <>
-    PARALLILOS_INLINE PARALLILOS_TYPE_PI32 simd_submul(PARALLILOS_TYPE_PI32 a, PARALLILOS_TYPE_PI32 b, PARALLILOS_TYPE_PI32 c)
+    PARALLILOS_INLINE PARALLILOS_TYPE_I32 simd_submul(PARALLILOS_TYPE_I32 a, PARALLILOS_TYPE_I32 b, PARALLILOS_TYPE_I32 c)
     {
-      return PARALLILOS_SUBMUL_PI32;
+      return PARALLILOS_SUBMUL_I32;
     }
     #endif
     #endif
@@ -1056,7 +1115,7 @@ namespace Parallilos
 
       // sequential fallback
       for (; k < n; ++k) {
-        r[k] = a[k] / b[k];
+        r[k] = (b[k] != 0) ? a[k] / b[k] : std::numeric_limits<T>::min();
       }
 
       return r;
@@ -1085,8 +1144,15 @@ namespace Parallilos
       #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
-        r[k] = a / b[k];
+      if (a != 0) {
+        for (; k < n; ++k) {
+          r[k] = (b[k] != 0) ? a / b[k] : std::numeric_limits<T>::min();
+        }
+      }
+      else {
+        for (; k < n; ++k) {
+          r[k] = (b[k] == 0);
+        }
       }
 
       return r;
@@ -1115,8 +1181,15 @@ namespace Parallilos
       #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
-        r[k] = a[k] / b;
+      if (b != 0) {
+        for (; k < n; ++k) {
+          r[k] = a[k] / b;
+        }
+      }
+      else {
+        for (; k < n; ++k) {
+          r[k] = std::numeric_limits<T>::min();
+        }
       }
 
       return r;
@@ -1152,51 +1225,51 @@ namespace Parallilos
     }
   
     // cleanup namespace
-    #undef PARALLILOS_TYPE_PD
-    #undef PARALLILOS_LOADU_PD
-    #undef PARALLILOS_LOADA_PD
-    #undef PARALLILOS_STOREU_PD
-    #undef PARALLILOS_STOREA_PD
-    #undef PARALLILOS_SETVAL_PD
-    #undef PARALLILOS_SETZERO_PD
-    #undef PARALLILOS_MUL_PD
-    #undef PARALLILOS_ADD_PD
-    #undef PARALLILOS_SUB_PD
-    #undef PARALLILOS_DIV_PD
-    #undef PARALLILOS_DIV_PS
-    #undef PARALLILOS_SQRT_PD
-    #undef PARALLILOS_ADDMUL_PD
-    #undef PARALLILOS_SUBMUL_PD
+    #undef PARALLILOS_TYPE_F64
+    #undef PARALLILOS_LOADU_F64
+    #undef PARALLILOS_LOADA_F64
+    #undef PARALLILOS_STOREU_F64
+    #undef PARALLILOS_STOREA_F64
+    #undef PARALLILOS_SETVAL_F64
+    #undef PARALLILOS_SETZERO_F64
+    #undef PARALLILOS_MUL_F64
+    #undef PARALLILOS_ADD_F64
+    #undef PARALLILOS_SUB_F64
+    #undef PARALLILOS_DIV_F64
+    #undef PARALLILOS_DIV_F32
+    #undef PARALLILOS_SQRT_F64
+    #undef PARALLILOS_ADDMUL_F64
+    #undef PARALLILOS_SUBMUL_F64
     //
-    #undef PARALLILOS_TYPE_PS
-    #undef PARALLILOS_LOADU_PS
-    #undef PARALLILOS_LOADA_PS
-    #undef PARALLILOS_STOREU_PS
-    #undef PARALLILOS_STOREA_PS
-    #undef PARALLILOS_SETVAL_PS
-    #undef PARALLILOS_SETZERO_PS
-    #undef PARALLILOS_MUL_PS
-    #undef PARALLILOS_ADD_PS
-    #undef PARALLILOS_SUB_PS
-    #undef PARALLILOS_SQRT_PS
-    #undef PARALLILOS_ADDMUL_PS
-    #undef PARALLILOS_SUBMUL_PS
+    #undef PARALLILOS_TYPE_F32
+    #undef PARALLILOS_LOADU_F32
+    #undef PARALLILOS_LOADA_F32
+    #undef PARALLILOS_STOREU_F32
+    #undef PARALLILOS_STOREA_F32
+    #undef PARALLILOS_SETVAL_F32
+    #undef PARALLILOS_SETZERO_F32
+    #undef PARALLILOS_MUL_F32
+    #undef PARALLILOS_ADD_F32
+    #undef PARALLILOS_SUB_F32
+    #undef PARALLILOS_SQRT_F32
+    #undef PARALLILOS_ADDMUL_F32
+    #undef PARALLILOS_SUBMUL_F32
     //
-    #undef PARALLILOS_TYPE_PI32
-    #undef PARALLILOS_LOADU_PI32
-    #undef PARALLILOS_LOADA_PI32
-    #undef PARALLILOS_STOREU_PI32
-    #undef PARALLILOS_STOREA_PI32
-    #undef PARALLILOS_SETVAL_PI32
-    #undef PARALLILOS_SETZERO_PI32
-    #undef PARALLILOS_MUL_PI32
-    #undef PARALLILOS_ADD_PI32
-    #undef PARALLILOS_SUB_PI32
-    #undef PARALLILOS_DIV_PI32
-    #undef PARALLILOS_DIV_PS
-    #undef PARALLILOS_SQRT_PI32
-    #undef PARALLILOS_ADDMUL_PI32
-    #undef PARALLILOS_SUBMUL_PI32
+    #undef PARALLILOS_TYPE_I32
+    #undef PARALLILOS_LOADU_I32
+    #undef PARALLILOS_LOADA_I32
+    #undef PARALLILOS_STOREU_I32
+    #undef PARALLILOS_STOREA_I32
+    #undef PARALLILOS_SETVAL_I32
+    #undef PARALLILOS_SETZERO_I32
+    #undef PARALLILOS_MUL_I32
+    #undef PARALLILOS_ADD_I32
+    #undef PARALLILOS_SUB_I32
+    #undef PARALLILOS_DIV_I32
+    #undef PARALLILOS_DIV_F32
+    #undef PARALLILOS_SQRT_I32
+    #undef PARALLILOS_ADDMUL_I32
+    #undef PARALLILOS_SUBMUL_I32
     //
     #undef PARALLILOS_INLINE
     #undef PARALLILOS_COMPILER_SUPPORTS_SSE_AVX
@@ -1204,3 +1277,28 @@ namespace Parallilos
   }
 }
 #endif
+
+/*
+
+// Define the predetermined list of types
+using TypeList = std::tuple<int, float, double, char>;
+
+// Helper struct to check if a type is in the list
+template<typename T, typename... Types>
+struct IsOneOf;
+
+// Base case: Type is not found in the list
+template<typename T>
+struct IsOneOf<T> : std::false_type {};
+
+// Recursive case: Check if the type matches the first type in the list
+template<typename T, typename... Types>
+struct IsOneOf<T, T, Types...> : std::true_type {};
+
+// Recursive case: Continue checking with the remaining types in the list
+template<typename T, typename U, typename... Types>
+struct IsOneOf<T, U, Types...> : IsOneOf<T, Types...> {};
+
+
+
+*/

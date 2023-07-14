@@ -6,7 +6,7 @@
 
 int main()
 {
-  using type = double;
+  using type = int;
   
   // stack allocated array
   const size_t n1 = 10;
@@ -27,9 +27,9 @@ int main()
   std::vector<type> c3(n3);
 
   // fixed-size array
-  const size_t n4 = 10;
-  std::array<type, n4> a4 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::array<type, n4> b4 = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+  const size_t n4 = 20;
+  std::array<type, n4> a4 = {0, 1, -2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::array<type, n4> b4 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
   std::array<type, n4> c4;
 
   Parallilos::add_arrays(a1, b1, c1, n1);
