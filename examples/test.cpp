@@ -2,92 +2,152 @@
 #include <iostream>
 #include <vector>
 #include <array>
+#include <memory>
 #include "../include/Parallilos.hpp"
 
-int main()
+void stack_array()
+{
+  using type = float;
+
+  // stack allocated array
+  type a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  type b[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  static_assert(sizeof(a) == sizeof(b), "a and b must have the same number of elements");
+  const size_t n = sizeof(a)/sizeof(type);
+  type c[n];
+
+  // SIMD-enhanced
+  Parallilos::add_arrays(a, b, c, n);
+
+  // display result array
+  for (size_t k = 0; k < n; ++k)
+    std::cout << c[k] << ' ';
+  std::cout << '\n';
+
+  std::cout << "SIMD instruction set: " << Parallilos::simd_properties<type>::set << '\n';
+  std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
+}
+
+void standard_vector()
+{
+  using type = float;
+
+  // dynamic array
+  std::vector<type> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::vector<type> b = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  const size_t n = a.size();
+  std::vector<type> c(n);
+
+  // SIMD-enhanced
+  Parallilos::mul_arrays(a.data(), b.data(), c.data(), n);
+
+  // display result array
+  for (size_t k = 0; k < n; ++k)
+    std::cout << c[k] << ' ';
+  std::cout << '\n';
+
+  std::cout << "SIMD instruction set: " << Parallilos::simd_properties<type>::set << '\n';
+  std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
+}
+
+void heap_array()
+{
+  using type = float;
+
+  // heap allocated array
+  const size_t n = 20;
+  type* a = new type[n]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  type* b = new type[n]{9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  type* c = new type[n];
+
+  // SIMD-enhanced
+  Parallilos::sub_arrays(a, b, c, n);
+
+  // display result array
+  for (size_t k = 0; k < n; ++k)
+    std::cout << c[k] << ' ';
+  std::cout << '\n';
+
+  delete[] a;
+  delete[] b;
+  delete[] c;
+
+  std::cout << "SIMD instruction set: " << Parallilos::simd_properties<type>::set << '\n';
+  std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
+}
+
+void standard_array()
+{
+  using type = float;
+
+  // fixed-size array
+  const size_t n = 20;
+  std::array<type, n> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::array<type, n> b = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::array<type, n> c;
+
+  // SIMD-enhanced
+  Parallilos::div_arrays(a.data(), b.data(), c.data(), n);
+
+  // display result array
+  for (size_t k = 0; k < n; ++k)
+    std::cout << c[k] << ' ';
+  std::cout << '\n';
+  
+  std::cout << "SIMD instruction set: " << Parallilos::simd_properties<type>::set << '\n';
+  std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
+}
+
+void custom_implementation()
 {
   using namespace Parallilos;
   using type = float;
 
-  //*
-  // stack allocated array
-  const size_t n1 = 20;
-  type a1[n1] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  type b1[n1] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  type c1[n1];
-   add_arrays(a1, b1, c1, n1);
-  for (size_t k = 0; k < n1; ++k)
-    std::cout << c1[k] << ' ';
-  std::cout << std::endl;
-  std::cout << "SIMD instruction set: " <<  simd_properties<type>::set << '\n';
-  std::cout << "SIMD passes: " <<  simd_properties<type>::iterations(n1) << '\n';
-  //*/
+  // aligned memory allocation
+  const size_t n = 16;
+  unique_array<type> a = allocate<type>(n);
+  unique_array<type> b = allocate<type>(n);
+  unique_array<type> c = allocate<type>(n);
 
-  /*
-  // dynamic array
-  std::vector<type> a3 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::vector<type> b3 = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
-  const size_t n2 = a3.size();
-  std::vector<type> c3(n2);
-   mul_arrays(a3.data(), b3.data(), c3.data(), n2);
-  for (size_t k = 0; k < n2; ++k)
-    std::cout << c3[k] << ' ';
-  std::cout << std::endl;
-  std::cout << "SIMD instruction set: " <<  simd_properties<type>::set << '\n';
-  std::cout << "SIMD passes: " <<  simd_properties<type>::iterations(n2) << '\n';
-  //*/
-
-  /*
-  // heap allocated array
-  const size_t n3 = 10;
-  type* a2 = new type[n3]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  type* b2 = new type[n3]{9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
-  type* c2 = new type[n3];
-   sub_arrays(a2, b2, c2, n3);
-  for (size_t k = 0; k < n3; ++k)
-    std::cout << c2[k] << ' ';
-  std::cout << std::endl;
-  std::cout << "SIMD instruction set: " <<  simd_properties<type>::set << '\n';
-  std::cout << "SIMD passes: " <<  simd_properties<type>::iterations(n3) << '\n';
-  //*/
-
-  /*
-  // fixed-size array
-  const size_t n4 = 10;
-  std::array<type, n4> a4 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::array<type, n4> b4 = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
-  std::array<type, n4> c4;
-   div_arrays(a4.data(), b4.data(), c4.data(), n4);
-  for (size_t k = 0; k < n4; ++k)
-    std::cout << c4[k] << ' ';
-  std::cout << std::endl;
-  std::cout << "SIMD instruction set: " <<  simd_properties<type>::set << '\n';
-  std::cout << "SIMD passes: " <<  simd_properties<type>::iterations(n4) << '\n';
-  //*/
-
-
-  using test_type = float;
-  const size_t n5 = 16;
-  test_type* a = allocate<test_type>(n5);
-  test_type* b = allocate<test_type>(n5);
-  test_type* c = allocate<test_type>(n5);
-  for (size_t k = 0; k < n5; ++k) {
+  // initialize arrays
+  for (size_t k = 0; k < n; ++k) {
     a[k] = k;
-    b[k] = k + n5;
+    b[k] = k + n;
   }
+
+  const size_t iterations = simd_properties<type>::iterations(n);
+  
+  // SIMD-enhanced
   size_t k = 0;
-  const size_t size =  simd_properties<test_type>::size;
-  const size_t iterations =  simd_properties<test_type>::iterations(n5);
-  for (size_t i = 0; i < iterations; ++i, k+=size) {
-    simd_storeu(c+k, simd_add( simd_loadu(a+k), simd_loadu(b+k)));
-  }
-  for (; k < n5; ++k) {
+  for (size_t i = 0; i < iterations; ++i, k+=simd_properties<type>::size)
+    simd_storea(c.get()+k, simd_add(simd_loada(a.get()+k), simd_loada(b.get()+k)));
+  for (; k < n; ++k)
     c[k] = a[k] + b[k];
-  }
-  for (size_t k = 0; k < n5; ++k)
+
+  // display result array
+  for (size_t k = 0; k < n; ++k)
     std::cout << c[k] << ' ';
-  std::cout << std::endl;
-  std::cout << "SIMD instruction set: " <<  simd_properties<test_type>::set << '\n';
-  std::cout << "SIMD passes: " << simd_properties<test_type>::iterations(n5) << '\n';
+  std::cout << '\n';
+
+  std::cout << "SIMD instruction set: " <<  simd_properties<type>::set << '\n';
+  std::cout << "SIMD passes: " << iterations << '\n';
+}
+
+int main()
+{
+  std::cout << "\nstack allocated array example:\n";
+  stack_array();
+  
+  std::cout << "\nheap allocated array example:\n";
+  heap_array();
+
+  std::cout << "\nstd::vector example:\n";
+  standard_vector();
+
+  std::cout << "\nstd::array example:\n";
+  standard_array();
+
+  std::cout << "\ncustom implementation example:\n";
+  custom_implementation();
 }
 // -mno-avx512f -mno-avx2 -mno-avx -mno-sse4.2 -mno-sse4.1 -mno-ssse3 -mno-sse3 -mno-sse2
