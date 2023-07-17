@@ -373,15 +373,15 @@ namespace Parallilos
   #endif
 
   #if !(defined(PARALLILOS_AVX512F) \
-     || defined(PARALLILOS_AVX2)   \
-     || defined(PARALLILOS_AVX)    \
-     || defined(PARALLILOS_SSE4_2) \
-     || defined(PARALLILOS_SSE4_1) \
-     || defined(PARALLILOS_SSSE3)  \
-     || defined(PARALLILOS_SSE3)   \
-     || defined(PARALLILOS_SSE2)   \
-     || defined(PARALLILOS_SSE)    \
-     || defined(PARALLILOS_NEON64) \
+     || defined(PARALLILOS_AVX2)    \
+     || defined(PARALLILOS_AVX)     \
+     || defined(PARALLILOS_SSE4_2)  \
+     || defined(PARALLILOS_SSE4_1)  \
+     || defined(PARALLILOS_SSSE3)   \
+     || defined(PARALLILOS_SSE3)    \
+     || defined(PARALLILOS_SSE2)    \
+     || defined(PARALLILOS_SSE)     \
+     || defined(PARALLILOS_NEON64)  \
      || defined(PARALLILOS_NEON))
     #define PARALLILOS_SEQUENTIAL
     #if __cplusplus >= 202302L
@@ -594,14 +594,14 @@ namespace Parallilos
       #define PARALLILOS_MUL_I32       _mm512_mul_epi32(a, b)
       #define PARALLILOS_ADD_I32       _mm512_add_epi32(a, b)
       #define PARALLILOS_SUB_I32       _mm512_sub_epi32(a, b)
-      #if defined(PARALLILOS_SVML)
-        #define PARALLILOS_DIV_I32     _mm512_div_epi32(a, b)
-      #else
-        #define PARALLILOS_DIV_I32     _mm512_cvtps_epi32(_mm512_div_ps(_mm512_cvtepi32_ps(a), _mm512_cvtepi32_ps(b)))
-      #endif
+      #define PARALLILOS_DIV_I32       _mm512_cvtps_epi32(_mm512_div_ps(_mm512_cvtepi32_ps(a), _mm512_cvtepi32_ps(b)))
       #define PARALLILOS_SQRT_I32      _mm512_cvtps_epi32(_mm512_sqrt_ps(_mm512_cvtepi32_ps(a)))
       #define PARALLILOS_ADDMUL_I32    _mm512_add_epi32(a, _mm512_mul_epi32(b, c))
       #define PARALLILOS_SUBMUL_I32    _mm512_sub_epi32(a, _mm512_mul_epi32(b, c))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32     _mm512_div_epi32(a, b)
+      #endif
     #elif defined(PARALLILOS_AVX2)
       #define PARALLILOS_SET_I32       "AVX2, AVX"
       #define PARALLILOS_TYPE_I32      __m256i
@@ -615,14 +615,14 @@ namespace Parallilos
       #define PARALLILOS_MUL_I32       _mm256_mul_epi32(a, b)
       #define PARALLILOS_ADD_I32       _mm256_add_epi32(a, b)
       #define PARALLILOS_SUB_I32       _mm256_sub_epi32(a, b)
-      #if defined(PARALLILOS_SVML)
-        #define PARALLILOS_DIV_I32     _mm256_div_epi32(a, b)
-      #else
-        #define PARALLILOS_DIV_I32     _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
-      #endif
+      #define PARALLILOS_DIV_I32       _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
       #define PARALLILOS_SQRT_I32      _mm256_cvtps_epi32(_mm256_sqrt_ps(_mm256_cvtepi32_ps(a)))
       #define PARALLILOS_ADDMUL_I32    _mm256_add_epi32(a, _mm256_mul_epi32(b, c))
       #define PARALLILOS_SUBMUL_I32    _mm256_sub_epi32(a, _mm256_mul_epi32(b, c))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32     _mm256_div_epi32(a, b)
+      #endif
     #elif defined(PARALLILOS_AVX)
       #define PARALLILOS_SET_I32       "AVX"
       #define PARALLILOS_TYPE_I32      __m256i
@@ -636,14 +636,14 @@ namespace Parallilos
       #define PARALLILOS_MUL_I32       _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
       #define PARALLILOS_ADD_I32       _mm256_add_epi32(a, b)
       #define PARALLILOS_SUB_I32       _mm256_sub_epi32(a, b)
-      #if defined(PARALLILOS_SVML)
-        #define PARALLILOS_DIV_I32     _mm256_div_epi32(a, b)
-      #else
-        #define PARALLILOS_DIV_I32     _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
-      #endif
+      #define PARALLILOS_DIV_I32       _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
       #define PARALLILOS_SQRT_I32      _mm256_cvtps_epi32(_mm256_sqrt_ps(_mm256_cvtepi32_ps(a)))
       #define PARALLILOS_ADDMUL_I32    _mm256_add_epi32(a, _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(b), _mm256_cvtepi32_ps(c))))
       #define PARALLILOS_SUBMUL_I32    _mm256_sub_epi32(a, _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(b), _mm256_cvtepi32_ps(c))))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32     _mm256_div_epi32(a, b)
+      #endif
     //#elif defined(PARALLILOS_SSE4_2)
     #elif defined(PARALLILOS_SSE4_1)
       #define PARALLILOS_SET_I32       "SSE4.1, SSE2"
@@ -658,14 +658,14 @@ namespace Parallilos
       #define PARALLILOS_MUL_I32       _mm_mul_epi32(a, b)
       #define PARALLILOS_ADD_I32       _mm_add_epi32(a, b)
       #define PARALLILOS_SUB_I32       _mm_sub_epi32(a, b)
-      #if defined(PARALLILOS_SVML)
-        #define PARALLILOS_DIV_I32     _mm_div_epi32(a, b)
-      #else
-        #define PARALLILOS_DIV_I32     _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-      #endif
+      #define PARALLILOS_DIV_I32       _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
       #define PARALLILOS_SQRT_I32      _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
       #define PARALLILOS_ADDMUL_I32    _mm_add_epi32(a, _mm_mul_epi32(b, c))
       #define PARALLILOS_SUBMUL_I32    _mm_sub_epi32(a, _mm_mul_epi32(b, c))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32     _mm_div_epi32(a, b)
+      #endif
     //#elif defined(PARALLILOS_SSSE3)
     //#elif defined(PARALLILOS_SSE3)
     #elif defined(PARALLILOS_SSE2)
@@ -681,14 +681,14 @@ namespace Parallilos
       #define PARALLILOS_MUL_I32       _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
       #define PARALLILOS_ADD_I32       _mm_add_epi32(a, b)
       #define PARALLILOS_SUB_I32       _mm_sub_epi32(a, b)
-      #if defined(PARALLILOS_SVML)
-        #define PARALLILOS_DIV_I32     _mm_div_epi32(a, b)
-      #else
-        #define PARALLILOS_DIV_I32     _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-      #endif
+      #define PARALLILOS_DIV_I32       _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
       #define PARALLILOS_SQRT_I32      _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
       #define PARALLILOS_ADDMUL_I32    _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
       #define PARALLILOS_SUBMUL_I32    _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32     _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+      #endif
     //#elif defined(PARALLILOS_SSE)
     //#elif defined(PARALLILOS_NEON) || defined(PARALLILOS_NEON64)
     #endif
