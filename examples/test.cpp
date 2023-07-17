@@ -7,7 +7,7 @@
 
 void stack_array()
 {
-  using type = float;
+  using type = double;
 
   // stack allocated array
   type a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -26,6 +26,7 @@ void stack_array()
 
   std::cout << "SIMD instruction set: " << Parallilos::simd_properties<type>::set << '\n';
   std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
+  std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
 void standard_vector()
@@ -48,32 +49,30 @@ void standard_vector()
 
   std::cout << "SIMD instruction set: " << Parallilos::simd_properties<type>::set << '\n';
   std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
+  std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
 void heap_array()
 {
-  using type = float;
+  using type = int;
 
   // heap allocated array
   const size_t n = 20;
-  type* a = new type[n]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  type* b = new type[n]{9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  type* c = new type[n];
+  std::unique_ptr<type[]> a = std::unique_ptr<type[]>(new type[n]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  std::unique_ptr<type[]> b = std::unique_ptr<type[]>(new type[n]{9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  std::unique_ptr<type[]> c = std::unique_ptr<type[]>(new type[n]);
 
   // SIMD-enhanced
-  Parallilos::sub_arrays(a, b, c, n);
+  Parallilos::sub_arrays(a.get(), b.get(), c.get(), n);
 
   // display result array
   for (size_t k = 0; k < n; ++k)
     std::cout << c[k] << ' ';
   std::cout << '\n';
 
-  delete[] a;
-  delete[] b;
-  delete[] c;
-
   std::cout << "SIMD instruction set: " << Parallilos::simd_properties<type>::set << '\n';
   std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
+  std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
 void standard_array()
@@ -96,6 +95,7 @@ void standard_array()
   
   std::cout << "SIMD instruction set: " << Parallilos::simd_properties<type>::set << '\n';
   std::cout << "SIMD passes: " << Parallilos::simd_properties<type>::iterations(n) << '\n';
+  std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
 void custom_implementation()
@@ -128,9 +128,10 @@ void custom_implementation()
   for (size_t k = 0; k < n; ++k)
     std::cout << c[k] << ' ';
   std::cout << '\n';
-
+  
   std::cout << "SIMD instruction set: " <<  simd_properties<type>::set << '\n';
   std::cout << "SIMD passes: " << iterations << '\n';
+  std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
 int main()
