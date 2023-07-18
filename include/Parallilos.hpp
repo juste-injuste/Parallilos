@@ -127,7 +127,7 @@ namespace Parallilos
     template<typename T>
     inline void sqrt_array(const T* a, T* r, const size_t n);
 
-    // define which instruction set is supported and the best way to inline given the compiler
+    // define which instruction sets are supported and the best way to inline given the compiler
     #if defined(__GNUC__)
       #define PARALLILOS_COMPILER_SUPPORTS_SSE
       #define PARALLILOS_COMPILER_SUPPORTS_AVX

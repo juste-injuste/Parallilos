@@ -5,10 +5,9 @@
 #include <memory>
 #include "include/Parallilos.hpp"
 
+template<typename type>
 void stack_array()
 {
-  using type = double;
-
   // stack allocated array
   type a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   type b[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -29,10 +28,9 @@ void stack_array()
   std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
+template<typename type>
 void standard_vector()
 {
-  using type = float;
-
   // dynamic array
   std::vector<type> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   std::vector<type> b = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -52,10 +50,9 @@ void standard_vector()
   std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
+template<typename type>
 void heap_array()
 {
-  using type = int;
-
   // heap allocated array
   const size_t n = 20;
   std::unique_ptr<type[]> a = std::unique_ptr<type[]>(new type[n]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
@@ -75,10 +72,9 @@ void heap_array()
   std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
+template<typename type>
 void standard_array()
 {
-  using type = float;
-
   // fixed-size array
   const size_t n = 20;
   std::array<type, n> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -98,10 +94,10 @@ void standard_array()
   std::cout << "Sequential passes: " << Parallilos::simd_properties<type>::sequential(n) << '\n';
 }
 
+template<typename type>
 void custom_implementation()
 {
   using namespace Parallilos;
-  using type = float;
 
   // aligned memory allocation
   const size_t n = 16;
@@ -136,17 +132,17 @@ void custom_implementation()
 int main()
 {
   std::cout << "\nstack allocated array example:\n";
-  stack_array();
+  stack_array<float>();
   
   std::cout << "\nheap allocated array example:\n";
-  heap_array();
+  heap_array<int>();
 
-  std::cout << "\nstd::vector example:\n";
-  standard_vector();
+  std::cout << "\nvector example:\n";
+  standard_vector<double>();
 
-  std::cout << "\nstd::array example:\n";
-  standard_array();
+  std::cout << "\nstandard array example:\n";
+  standard_array<float>();
 
   std::cout << "\ncustom implementation example:\n";
-  custom_implementation();
+  custom_implementation<float>();
 }
