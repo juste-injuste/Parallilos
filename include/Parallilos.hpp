@@ -41,21 +41,8 @@ facilitate generic parallelism.
 #include <cmath>   // for std::sqrt
 #include <cstdlib> // for std::malloc, std::free
 #include <cstdint> // for int32_t
-#include <type_traits>
 #include <limits>  // for std::numeric_limits
 #include <memory>  // for std::unique_ptr
-/*
-#define __AVX512F__
-#define __AVX2__
-//*/
-#define __FMA__
-#define __AVX__
-#define __SSE4_2__
-#define __SSE4_1__
-#define __SSSE3__
-#define __SSE3__
-#define __SSE2__
-#define __SSE__
 // --Parallilos library-----------------------------------------------------------------------------
 namespace Parallilos
 {
@@ -90,55 +77,55 @@ namespace Parallilos
 
     // [r] = [a] + [b]
     template<typename T>
-    inline T* add_arrays(const T* a, const T* b, T* r, const size_t n);
+    inline void add_arrays(const T* a, const T* b, T* r, const size_t n);
 
     // [r] = a + [b]
     template<typename T>
-    inline T* add_arrays(const T a, const T* b, T* r, const size_t n);
+    inline void add_arrays(const T a, const T* b, T* r, const size_t n);
 
     // [r] = [a] + b
     template<typename T>
-    inline T* add_arrays(const T* a, const T b, T* r, const size_t n);
+    inline void add_arrays(const T* a, const T b, T* r, const size_t n);
 
     // [r] = [a] - [b]
     template<typename T>
-    inline T* sub_arrays(const T* a, const T* b, T* r, const size_t n);
+    inline void sub_arrays(const T* a, const T* b, T* r, const size_t n);
 
     // [r] = a - [b]
     template<typename T>
-    inline T* sub_arrays(const T a, const T* b, T* r, const size_t n);
+    inline void sub_arrays(const T a, const T* b, T* r, const size_t n);
 
     // [r] = [a] - b
     template<typename T>
-    inline T* sub_arrays(const T* a, const T b, T* r, const size_t n);
+    inline void sub_arrays(const T* a, const T b, T* r, const size_t n);
 
     // [r] = [a] * [b]
     template<typename T>
-    inline T* mul_arrays(const T* a, const T* b, T* r, const size_t n);
+    inline void mul_arrays(const T* a, const T* b, T* r, const size_t n);
 
     // [r] = a * [b]
     template<typename T>
-    inline T* mul_arrays(const T a, const T* b, T* r, const size_t n);
+    inline void mul_arrays(const T a, const T* b, T* r, const size_t n);
 
     // [r] = [a] * b
     template<typename T>
-    inline T* mul_arrays(const T* a, const T b, T* r, const size_t n);
+    inline void mul_arrays(const T* a, const T b, T* r, const size_t n);
 
     // [r] = [a] / [b]
     template<typename T>
-    inline T* div_arrays(const T* a, const T* b, T* r, const size_t n);
+    inline void div_arrays(const T* a, const T* b, T* r, const size_t n);
 
     // [r] = a / [b]
     template<typename T>
-    inline T* div_arrays(const T a, const T* b, T* r, const size_t n);
+    inline void div_arrays(const T a, const T* b, T* r, const size_t n);
 
     // [r] = [a] / b
     template<typename T>
-    inline T* div_arrays(const T* a, const T b, T* r, const size_t n);
+    inline void div_arrays(const T* a, const T b, T* r, const size_t n);
 
     // [r] = sqrt([a])
     template<typename T>
-    inline T* sqrt_array(const T* a, T* r, const size_t n);
+    inline void sqrt_array(const T* a, T* r, const size_t n);
 
     // define which instruction set is supported and the best way to inline given the compiler
     #if defined(__GNUC__)
@@ -303,6 +290,7 @@ namespace Parallilos
     #endif 
       return std::sqrt(a);
     }
+
     // [a] + ([b] * [c]) 
     template<typename V>
     PARALLILOS_INLINE V simd_addmul(V a, V b, V c)
@@ -399,18 +387,7 @@ namespace Parallilos
     #define PARALLILOS_SVML
   #endif
 
-  #if !(defined(PARALLILOS_AVX512F) \
-     || defined(PARALLILOS_AVX2)    \
-     || defined(PARALLILOS_FMA)     \
-     || defined(PARALLILOS_AVX)     \
-     || defined(PARALLILOS_SSE4_2)  \
-     || defined(PARALLILOS_SSE4_1)  \
-     || defined(PARALLILOS_SSSE3)   \
-     || defined(PARALLILOS_SSE3)    \
-     || defined(PARALLILOS_SSE2)    \
-     || defined(PARALLILOS_SSE)     \
-     || defined(PARALLILOS_NEON64)  \
-     || defined(PARALLILOS_NEON))
+  #if !defined(PARALLILOS_PARALLELISM)
     #define PARALLILOS_SEQUENTIAL
     #if __cplusplus >= 202302L
       #warning "warning: Parallilos: no SIMD instruction set used, sequential fallback used."
@@ -440,7 +417,6 @@ namespace Parallilos
       #define PARALLILOS_SQRT_F32(a)               _mm512_sqrt_ps(a)
       #define PARALLILOS_ADDMUL_F32(a, b, c)       _mm512_fmadd_ps(b, c, a)
       #define PARALLILOS_SUBMUL_F32(a, b, c)       _mm512_fnmadd_ps(a, b, c)
-    //#elif defined(PARALLILOS_AVX2)
     #elif defined(PARALLILOS_FMA)
       #define PARALLILOS_SET_F32                   "AVX, FMA"
       #define PARALLILOS_TYPE_F32                  __m256
@@ -475,11 +451,6 @@ namespace Parallilos
       #define PARALLILOS_SQRT_F32(a)               _mm256_sqrt_ps(a)
       #define PARALLILOS_ADDMUL_F32(a, b, c)       _mm256_add_ps(a, _mm256_mul_ps(b, c))
       #define PARALLILOS_SUBMUL_F32(a, b, c)       _mm256_sub_ps(a, _mm256_mul_ps(b, c))
-    //#elif defined(PARALLILOS_SSE4_2)
-    //#elif defined(PARALLILOS_SSE4_1)
-    //#elif defined(PARALLILOS_SSSE3)
-    //#elif defined(PARALLILOS_SSE3)
-    //#elif defined(PARALLILOS_SSE2)
     #elif defined(PARALLILOS_SSE)
       #define PARALLILOS_SET_F32                   "SSE"
       #define PARALLILOS_TYPE_F32                  __m128
@@ -514,194 +485,6 @@ namespace Parallilos
       #define PARALLILOS_SQRT_F32(a)               vsqrtq_f32(a)
       #define PARALLILOS_ADDMUL_F32(a, b, c)       vmlaq_f32(a, b, c)
       #define PARALLILOS_SUBMUL_F32(a, b, c)       vmlsq_f32(a, b, c)
-    #endif
-
-    // define the best SIMD intrinsics to use
-    #if defined(PARALLILOS_AVX512F)
-      #define PARALLILOS_SET_F64                   "AVX512F"
-      #define PARALLILOS_TYPE_F64                  __m512d
-      #define PARALLILOS_ALIGNMENT_F64             64
-      #define PARALLILOS_LOADU_F64(data)           _mm512_loadu_pd(data)
-      #define PARALLILOS_LOADA_F64(data)           _mm512_load_pd(data)
-      #define PARALLILOS_STOREU_F64(addr, data)    _mm512_storeu_pd((void*)addr, data)
-      #define PARALLILOS_STOREA_F64(addr, data)    _mm512_store_pd((void*)addr, data)
-      #define PARALLILOS_SETVAL_F64(value)         _mm512_set1_pd(value)
-      #define PARALLILOS_SETZERO_F64()             _mm512_setzero_pd()
-      #define PARALLILOS_MUL_F64(a, b)             _mm512_mul_pd(a, b)
-      #define PARALLILOS_ADD_F64(a, b)             _mm512_add_pd(a, b)
-      #define PARALLILOS_SUB_F64(a, b)             _mm512_sub_pd(a, b)
-      #define PARALLILOS_DIV_F64(a, b)             _mm512_div_pd(a, b)
-      #define PARALLILOS_SQRT_F64(a)               _mm512_sqrt_pd(a)
-      #define PARALLILOS_ADDMUL_F64(a, b, c)       _mm512_fmadd_pd(b, c, a)
-      #define PARALLILOS_SUBMUL_F64(a, b, c)       _mm512_fnmadd_pd(a, b, c)
-    //#elif defined(PARALLILOS_AVX2)
-    #elif defined(PARALLILOS_FMA)
-      #define PARALLILOS_SET_F64                   "AVX, FMA"
-      #define PARALLILOS_TYPE_F64                  __m256d
-      #define PARALLILOS_ALIGNMENT_F64             32
-      #define PARALLILOS_LOADU_F64(data)           _mm256_loadu_pd(data)
-      #define PARALLILOS_LOADA_F64(data)           _mm256_load_pd(data)
-      #define PARALLILOS_STOREU_F64(addr, data)    _mm256_storeu_pd(addr, data)
-      #define PARALLILOS_STOREA_F64(addr, data)    _mm256_store_pd(addr, data)
-      #define PARALLILOS_SETVAL_F64(value)         _mm256_set1_pd(value)
-      #define PARALLILOS_SETZERO_F64()             _mm256_setzero_pd()
-      #define PARALLILOS_MUL_F64(a, b)             _mm256_mul_pd(a, b)
-      #define PARALLILOS_ADD_F64(a, b)             _mm256_add_pd(a, b)
-      #define PARALLILOS_SUB_F64(a, b)             _mm256_sub_pd(a, b)
-      #define PARALLILOS_DIV_F64(a, b)             _mm256_div_pd(a, b)
-      #define PARALLILOS_SQRT_F64(a)               _mm256_sqrt_pd(a)
-      #define PARALLILOS_ADDMUL_F64(a, b, c)       _mm256_fmadd_pd(b, c, a)
-      #define PARALLILOS_SUBMUL_F64(a, b, c)       _mm256_fnmadd_pd(a, b, c)
-    #elif defined(PARALLILOS_AVX)
-      #define PARALLILOS_SET_F64                   "AVX"
-      #define PARALLILOS_TYPE_F64                  __m256d
-      #define PARALLILOS_ALIGNMENT_F64             32
-      #define PARALLILOS_LOADU_F64(data)           _mm256_loadu_pd(data)
-      #define PARALLILOS_LOADA_F64(data)           _mm256_load_pd(data)
-      #define PARALLILOS_STOREU_F64(addr, data)    _mm256_storeu_pd(addr, data)
-      #define PARALLILOS_STOREA_F64(addr, data)    _mm256_store_pd(addr, data)
-      #define PARALLILOS_SETVAL_F64(value)         _mm256_set1_pd(value)
-      #define PARALLILOS_SETZERO_F64()             _mm256_setzero_pd()
-      #define PARALLILOS_MUL_F64(a, b)             _mm256_mul_pd(a, b)
-      #define PARALLILOS_ADD_F64(a, b)             _mm256_add_pd(a, b)
-      #define PARALLILOS_SUB_F64(a, b)             _mm256_sub_pd(a, b)
-      #define PARALLILOS_DIV_F64(a, b)             _mm256_div_pd(a, b)
-      #define PARALLILOS_SQRT_F64(a)               _mm256_sqrt_pd(a)
-      #define PARALLILOS_ADDMUL_F64(a, b, c)       _mm256_add_pd(a, _mm256_mul_pd(b, c))
-      #define PARALLILOS_SUBMUL_F64(a, b, c)       _mm256_sub_pd(a, _mm256_mul_pd(b, c))
-    //#elif defined(PARALLILOS_SSE4_2)
-    //#elif defined(PARALLILOS_SSE4_1)
-    //#elif defined(PARALLILOS_SSSE3)
-    //#elif defined(PARALLILOS_SSE3)
-    #elif defined(PARALLILOS_SSE2)
-      #define PARALLILOS_SET_F64                   "SSE2"
-      #define PARALLILOS_TYPE_F64                  __m128d
-      #define PARALLILOS_ALIGNMENT_F64             16
-      #define PARALLILOS_LOADU_F64(data)           _mm_loadu_pd(data)
-      #define PARALLILOS_LOADA_F64(data)           _mm_load_pd(data)
-      #define PARALLILOS_STOREU_F64(addr, data)    _mm_storeu_pd(addr, data)
-      #define PARALLILOS_STOREA_F64(addr, data)    _mm_store_pd(addr, data)
-      #define PARALLILOS_SETVAL_F64(value)         _mm_set1_pd(value)
-      #define PARALLILOS_SETZERO_F64()             _mm_setzero_pd()
-      #define PARALLILOS_MUL_F64(a, b)             _mm_mul_pd(a, b)
-      #define PARALLILOS_ADD_F64(a, b)             _mm_add_pd(a, b)
-      #define PARALLILOS_SUB_F64(a, b)             _mm_sub_pd(a, b)
-      #define PARALLILOS_DIV_F64(a, b)             _mm_div_pd(a, b)
-      #define PARALLILOS_SQRT_F64(a)               _mm_sqrt_pd(a)
-      #define PARALLILOS_ADDMUL_F64(a, b, c)       _mm_add_pd(a, _mm_mul_pd(b, c))
-      #define PARALLILOS_SUBMUL_F64(a, b, c)       _mm_sub_pd(a, _mm_mul_pd(b, c))
-    //#elif defined(PARALLILOS_SSE)
-    #elif defined(PARALLILOS_NEON) || defined(PARALLILOS_NEON64)
-      #define PARALLILOS_SET_F64                   "NEON"
-      #define PARALLILOS_TYPE_F64                  float64x4_t
-      #define PARALLILOS_ALIGNMENT_F64             0
-      #define PARALLILOS_LOADU_F64(data)           vld1q_f64(data)
-      #define PARALLILOS_LOADA_F64(data)           vld1q_f64(data)
-      #define PARALLILOS_STOREU_F64(addr, data)    vst1q_f64(addr, data)
-      #define PARALLILOS_STOREA_F64(addr, data)    vst1q_f64(addr, data)
-      #define PARALLILOS_SETVAL_F64(value)         vdupq_n_f64(value)
-      #define PARALLILOS_SETZERO_F64()             vdupq_n_f64(0.0)
-      #define PARALLILOS_MUL_F64(a, b)             vmulq_f64(a, b)
-      #define PARALLILOS_ADD_F64(a, b)             vaddq_f64(a, b)
-      #define PARALLILOS_SUB_F64(a, b)             vsubq_f64(a, b)
-      #define PARALLILOS_DIV_F64(a, b)             vdivq_f64(a, b)
-      #define PARALLILOS_SQRT_F64(a)               vsqrtq_f64(a)
-      #define PARALLILOS_ADDMUL_F64(a, b, c)       vmlaq_f64(a, b, c)
-      #define PARALLILOS_SUBMUL_F64(a, b, c)       vmlsq_f64(a, b, c)
-    #endif
-
-    // define the best SIMD intrinsics to use for signed 32 bit integers
-    #if defined(PARALLILOS_AVX512F)
-      #define PARALLILOS_SET_I32                   "AVX512F"
-      #define PARALLILOS_TYPE_I32                  __m512i
-      #define PARALLILOS_ALIGNMENT_I32             64
-      #define PARALLILOS_LOADU_I32(data)           _mm512_loadu_si512(data)
-      #define PARALLILOS_LOADA_I32(data)           _mm512_load_si512(data)
-      #define PARALLILOS_STOREU_I32(addr, data)    _mm512_storeu_si512((void*)addr, data)
-      #define PARALLILOS_STOREA_I32(addr, data)    _mm512_store_si512((void*)addr, data)
-      #define PARALLILOS_SETVAL_I32(value)         _mm512_set1_epi32(value)
-      #define PARALLILOS_SETZERO_I32()             _mm512_setzero_epi32()
-      #define PARALLILOS_MUL_I32(a, b)             _mm512_mul_epi32(a, b)
-      #define PARALLILOS_ADD_I32(a, b)             _mm512_add_epi32(a, b)
-      #define PARALLILOS_SUB_I32(a, b)             _mm512_sub_epi32(a, b)
-      #define PARALLILOS_DIV_I32(a, b)             _mm512_cvtps_epi32(_mm512_div_ps(_mm512_cvtepi32_ps(a), _mm512_cvtepi32_ps(b)))
-      #define PARALLILOS_SQRT_I32(a)               _mm512_cvtps_epi32(_mm512_sqrt_ps(_mm512_cvtepi32_ps(a)))
-      #define PARALLILOS_ADDMUL_I32(a, b, c)       _mm512_add_epi32(a, _mm512_mul_epi32(b, c))
-      #define PARALLILOS_SUBMUL_I32(a, b, c)       _mm512_sub_epi32(a, _mm512_mul_epi32(b, c))
-      #if defined(PARALLILOS_SVML)
-        #undef  PARALLILOS_DIV_I32
-        #define PARALLILOS_DIV_I32(a, b)           _mm512_div_epi32(a, b)
-      #endif
-    #elif defined(PARALLILOS_AVX2)
-      #define PARALLILOS_SET_I32                   "AVX2, AVX"
-      #define PARALLILOS_TYPE_I32                  __m256i
-      #define PARALLILOS_ALIGNMENT_I32             32
-      #define PARALLILOS_LOADU_I32(data)           _mm256_loadu_si256((const __m256i*)data)
-      #define PARALLILOS_LOADA_I32(data)           _mm256_load_si256((const __m256i*)data)
-      #define PARALLILOS_STOREU_I32(addr, data)    _mm256_storeu_si256 ((__m256i*)addr, data)
-      #define PARALLILOS_STOREA_I32(addr, data)    _mm256_store_si256((__m256i*)addr, data)
-      #define PARALLILOS_SETVAL_I32(value)         _mm256_set1_epi32(value)
-      #define PARALLILOS_SETZERO_I32()             _mm256_setzero_si256()
-      #define PARALLILOS_MUL_I32(a, b)             _mm256_mul_epi32(a, b)
-      #define PARALLILOS_ADD_I32(a, b)             _mm256_add_epi32(a, b)
-      #define PARALLILOS_SUB_I32(a, b)             _mm256_sub_epi32(a, b)
-      #define PARALLILOS_DIV_I32(a, b)             _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
-      #define PARALLILOS_SQRT_I32(a)               _mm256_cvtps_epi32(_mm256_sqrt_ps(_mm256_cvtepi32_ps(a)))
-      #define PARALLILOS_ADDMUL_I32(a, b, c)       _mm256_add_epi32(a, _mm256_mul_epi32(b, c))
-      #define PARALLILOS_SUBMUL_I32(a, b, c)       _mm256_sub_epi32(a, _mm256_mul_epi32(b, c))
-      #if defined(PARALLILOS_SVML)
-        #undef  PARALLILOS_DIV_I32
-        #define PARALLILOS_DIV_I32(a, b)           _mm256_div_epi32(a, b)
-      #endif
-    //#elif defined(PARLLILOS_FMA)
-    //#elif defined(PARALLILOS_AVX)
-    //#elif defined(PARALLILOS_SSE4_2)
-    #elif defined(PARALLILOS_SSE4_1)
-      #define PARALLILOS_SET_I32                   "SSE4.1, SSE2"
-      #define PARALLILOS_TYPE_I32                  __m128i
-      #define PARALLILOS_ALIGNMENT_I32             16
-      #define PARALLILOS_LOADU_I32(data)           _mm_loadu_si128((const __m128i*)data)
-      #define PARALLILOS_LOADA_I32(data)           _mm_load_si128((const __m128i*)data)
-      #define PARALLILOS_STOREU_I32(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
-      #define PARALLILOS_STOREA_I32(addr, data)    _mm_store_si128((__m128i*)addr, data)
-      #define PARALLILOS_SETVAL_I32(value)         _mm_set1_epi32(value)
-      #define PARALLILOS_SETZERO_I32()             _mm_setzero_si128()
-      #define PARALLILOS_MUL_I32(a, b)             _mm_mul_epi32(a, b)
-      #define PARALLILOS_ADD_I32(a, b)             _mm_add_epi32(a, b)
-      #define PARALLILOS_SUB_I32(a, b)             _mm_sub_epi32(a, b)
-      #define PARALLILOS_DIV_I32(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-      #define PARALLILOS_SQRT_I32(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
-      #define PARALLILOS_ADDMUL_I32(a, b, c)       _mm_add_epi32(a, _mm_mul_epi32(b, c))
-      #define PARALLILOS_SUBMUL_I32(a, b, c)       _mm_sub_epi32(a, _mm_mul_epi32(b, c))
-      #if defined(PARALLILOS_SVML)
-        #undef  PARALLILOS_DIV_I32
-        #define PARALLILOS_DIV_I32(a, b)           _mm_div_epi32(a, b)
-      #endif
-    //#elif defined(PARALLILOS_SSSE3)
-    //#elif defined(PARALLILOS_SSE3)
-    #elif defined(PARALLILOS_SSE2)
-      #define PARALLILOS_SET_I32                   "SSE2"
-      #define PARALLILOS_TYPE_I32                  __m128i
-      #define PARALLILOS_ALIGNMENT_I32             16
-      #define PARALLILOS_LOADU_I32(data)           _mm_loadu_si128((const __m128i*)data)
-      #define PARALLILOS_LOADA_I32(data)           _mm_load_si128((const __m128i*)data)
-      #define PARALLILOS_STOREU_I32(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
-      #define PARALLILOS_STOREA_I32(addr, data)    _mm_store_si128((__m128i*)addr, data)
-      #define PARALLILOS_SETVAL_I32(value)         _mm_set1_epi32(value)
-      #define PARALLILOS_SETZERO_I32()             _mm_setzero_si128()
-      #define PARALLILOS_MUL_I32(a, b)             _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-      #define PARALLILOS_ADD_I32(a, b)             _mm_add_epi32(a, b)
-      #define PARALLILOS_SUB_I32(a, b)             _mm_sub_epi32(a, b)
-      #define PARALLILOS_DIV_I32(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-      #define PARALLILOS_SQRT_I32(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
-      #define PARALLILOS_ADDMUL_I32(a, b, c)       _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
-      #define PARALLILOS_SUBMUL_I32(a, b, c)       _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
-      #if defined(PARALLILOS_SVML)
-        #undef  PARALLILOS_DIV_I32
-        #define PARALLILOS_DIV_I32(a, b)           _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-      #endif
-    //#elif defined(PARALLILOS_SSE)
-    //#elif defined(PARALLILOS_NEON) || defined(PARALLILOS_NEON64)
     #endif
 
     #ifdef PARALLILOS_TYPE_F32
@@ -795,6 +578,94 @@ namespace Parallilos
     }
     #endif
 
+    // define the best SIMD intrinsics to use
+    #if defined(PARALLILOS_AVX512F)
+      #define PARALLILOS_SET_F64                   "AVX512F"
+      #define PARALLILOS_TYPE_F64                  __m512d
+      #define PARALLILOS_ALIGNMENT_F64             64
+      #define PARALLILOS_LOADU_F64(data)           _mm512_loadu_pd(data)
+      #define PARALLILOS_LOADA_F64(data)           _mm512_load_pd(data)
+      #define PARALLILOS_STOREU_F64(addr, data)    _mm512_storeu_pd((void*)addr, data)
+      #define PARALLILOS_STOREA_F64(addr, data)    _mm512_store_pd((void*)addr, data)
+      #define PARALLILOS_SETVAL_F64(value)         _mm512_set1_pd(value)
+      #define PARALLILOS_SETZERO_F64()             _mm512_setzero_pd()
+      #define PARALLILOS_MUL_F64(a, b)             _mm512_mul_pd(a, b)
+      #define PARALLILOS_ADD_F64(a, b)             _mm512_add_pd(a, b)
+      #define PARALLILOS_SUB_F64(a, b)             _mm512_sub_pd(a, b)
+      #define PARALLILOS_DIV_F64(a, b)             _mm512_div_pd(a, b)
+      #define PARALLILOS_SQRT_F64(a)               _mm512_sqrt_pd(a)
+      #define PARALLILOS_ADDMUL_F64(a, b, c)       _mm512_fmadd_pd(b, c, a)
+      #define PARALLILOS_SUBMUL_F64(a, b, c)       _mm512_fnmadd_pd(a, b, c)
+    #elif defined(PARALLILOS_FMA)
+      #define PARALLILOS_SET_F64                   "AVX, FMA"
+      #define PARALLILOS_TYPE_F64                  __m256d
+      #define PARALLILOS_ALIGNMENT_F64             32
+      #define PARALLILOS_LOADU_F64(data)           _mm256_loadu_pd(data)
+      #define PARALLILOS_LOADA_F64(data)           _mm256_load_pd(data)
+      #define PARALLILOS_STOREU_F64(addr, data)    _mm256_storeu_pd(addr, data)
+      #define PARALLILOS_STOREA_F64(addr, data)    _mm256_store_pd(addr, data)
+      #define PARALLILOS_SETVAL_F64(value)         _mm256_set1_pd(value)
+      #define PARALLILOS_SETZERO_F64()             _mm256_setzero_pd()
+      #define PARALLILOS_MUL_F64(a, b)             _mm256_mul_pd(a, b)
+      #define PARALLILOS_ADD_F64(a, b)             _mm256_add_pd(a, b)
+      #define PARALLILOS_SUB_F64(a, b)             _mm256_sub_pd(a, b)
+      #define PARALLILOS_DIV_F64(a, b)             _mm256_div_pd(a, b)
+      #define PARALLILOS_SQRT_F64(a)               _mm256_sqrt_pd(a)
+      #define PARALLILOS_ADDMUL_F64(a, b, c)       _mm256_fmadd_pd(b, c, a)
+      #define PARALLILOS_SUBMUL_F64(a, b, c)       _mm256_fnmadd_pd(a, b, c)
+    #elif defined(PARALLILOS_AVX)
+      #define PARALLILOS_SET_F64                   "AVX"
+      #define PARALLILOS_TYPE_F64                  __m256d
+      #define PARALLILOS_ALIGNMENT_F64             32
+      #define PARALLILOS_LOADU_F64(data)           _mm256_loadu_pd(data)
+      #define PARALLILOS_LOADA_F64(data)           _mm256_load_pd(data)
+      #define PARALLILOS_STOREU_F64(addr, data)    _mm256_storeu_pd(addr, data)
+      #define PARALLILOS_STOREA_F64(addr, data)    _mm256_store_pd(addr, data)
+      #define PARALLILOS_SETVAL_F64(value)         _mm256_set1_pd(value)
+      #define PARALLILOS_SETZERO_F64()             _mm256_setzero_pd()
+      #define PARALLILOS_MUL_F64(a, b)             _mm256_mul_pd(a, b)
+      #define PARALLILOS_ADD_F64(a, b)             _mm256_add_pd(a, b)
+      #define PARALLILOS_SUB_F64(a, b)             _mm256_sub_pd(a, b)
+      #define PARALLILOS_DIV_F64(a, b)             _mm256_div_pd(a, b)
+      #define PARALLILOS_SQRT_F64(a)               _mm256_sqrt_pd(a)
+      #define PARALLILOS_ADDMUL_F64(a, b, c)       _mm256_add_pd(a, _mm256_mul_pd(b, c))
+      #define PARALLILOS_SUBMUL_F64(a, b, c)       _mm256_sub_pd(a, _mm256_mul_pd(b, c))
+    #elif defined(PARALLILOS_SSE2)
+      #define PARALLILOS_SET_F64                   "SSE2"
+      #define PARALLILOS_TYPE_F64                  __m128d
+      #define PARALLILOS_ALIGNMENT_F64             16
+      #define PARALLILOS_LOADU_F64(data)           _mm_loadu_pd(data)
+      #define PARALLILOS_LOADA_F64(data)           _mm_load_pd(data)
+      #define PARALLILOS_STOREU_F64(addr, data)    _mm_storeu_pd(addr, data)
+      #define PARALLILOS_STOREA_F64(addr, data)    _mm_store_pd(addr, data)
+      #define PARALLILOS_SETVAL_F64(value)         _mm_set1_pd(value)
+      #define PARALLILOS_SETZERO_F64()             _mm_setzero_pd()
+      #define PARALLILOS_MUL_F64(a, b)             _mm_mul_pd(a, b)
+      #define PARALLILOS_ADD_F64(a, b)             _mm_add_pd(a, b)
+      #define PARALLILOS_SUB_F64(a, b)             _mm_sub_pd(a, b)
+      #define PARALLILOS_DIV_F64(a, b)             _mm_div_pd(a, b)
+      #define PARALLILOS_SQRT_F64(a)               _mm_sqrt_pd(a)
+      #define PARALLILOS_ADDMUL_F64(a, b, c)       _mm_add_pd(a, _mm_mul_pd(b, c))
+      #define PARALLILOS_SUBMUL_F64(a, b, c)       _mm_sub_pd(a, _mm_mul_pd(b, c))
+    #elif defined(PARALLILOS_NEON) || defined(PARALLILOS_NEON64)
+      #define PARALLILOS_SET_F64                   "NEON"
+      #define PARALLILOS_TYPE_F64                  float64x4_t
+      #define PARALLILOS_ALIGNMENT_F64             0
+      #define PARALLILOS_LOADU_F64(data)           vld1q_f64(data)
+      #define PARALLILOS_LOADA_F64(data)           vld1q_f64(data)
+      #define PARALLILOS_STOREU_F64(addr, data)    vst1q_f64(addr, data)
+      #define PARALLILOS_STOREA_F64(addr, data)    vst1q_f64(addr, data)
+      #define PARALLILOS_SETVAL_F64(value)         vdupq_n_f64(value)
+      #define PARALLILOS_SETZERO_F64()             vdupq_n_f64(0.0)
+      #define PARALLILOS_MUL_F64(a, b)             vmulq_f64(a, b)
+      #define PARALLILOS_ADD_F64(a, b)             vaddq_f64(a, b)
+      #define PARALLILOS_SUB_F64(a, b)             vsubq_f64(a, b)
+      #define PARALLILOS_DIV_F64(a, b)             vdivq_f64(a, b)
+      #define PARALLILOS_SQRT_F64(a)               vsqrtq_f64(a)
+      #define PARALLILOS_ADDMUL_F64(a, b, c)       vmlaq_f64(a, b, c)
+      #define PARALLILOS_SUBMUL_F64(a, b, c)       vmlsq_f64(a, b, c)
+    #endif
+
     // define a standard API to use SIMD intrinsics
     #ifdef PARALLILOS_TYPE_F64
     template<>
@@ -885,6 +756,93 @@ namespace Parallilos
     {
       return PARALLILOS_SUBMUL_F64(a, b, c);
     }
+    #endif
+
+    // define the best SIMD intrinsics to use for signed 32 bit integers
+    #if defined(PARALLILOS_AVX512F)
+      #define PARALLILOS_SET_I32                   "AVX512F"
+      #define PARALLILOS_TYPE_I32                  __m512i
+      #define PARALLILOS_ALIGNMENT_I32             64
+      #define PARALLILOS_LOADU_I32(data)           _mm512_loadu_si512(data)
+      #define PARALLILOS_LOADA_I32(data)           _mm512_load_si512(data)
+      #define PARALLILOS_STOREU_I32(addr, data)    _mm512_storeu_si512((void*)addr, data)
+      #define PARALLILOS_STOREA_I32(addr, data)    _mm512_store_si512((void*)addr, data)
+      #define PARALLILOS_SETVAL_I32(value)         _mm512_set1_epi32(value)
+      #define PARALLILOS_SETZERO_I32()             _mm512_setzero_epi32()
+      #define PARALLILOS_MUL_I32(a, b)             _mm512_mul_epi32(a, b)
+      #define PARALLILOS_ADD_I32(a, b)             _mm512_add_epi32(a, b)
+      #define PARALLILOS_SUB_I32(a, b)             _mm512_sub_epi32(a, b)
+      #define PARALLILOS_DIV_I32(a, b)             _mm512_cvtps_epi32(_mm512_div_ps(_mm512_cvtepi32_ps(a), _mm512_cvtepi32_ps(b)))
+      #define PARALLILOS_SQRT_I32(a)               _mm512_cvtps_epi32(_mm512_sqrt_ps(_mm512_cvtepi32_ps(a)))
+      #define PARALLILOS_ADDMUL_I32(a, b, c)       _mm512_add_epi32(a, _mm512_mul_epi32(b, c))
+      #define PARALLILOS_SUBMUL_I32(a, b, c)       _mm512_sub_epi32(a, _mm512_mul_epi32(b, c))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32(a, b)           _mm512_div_epi32(a, b)
+      #endif
+    #elif defined(PARALLILOS_AVX2)
+      #define PARALLILOS_SET_I32                   "AVX2, AVX"
+      #define PARALLILOS_TYPE_I32                  __m256i
+      #define PARALLILOS_ALIGNMENT_I32             32
+      #define PARALLILOS_LOADU_I32(data)           _mm256_loadu_si256((const __m256i*)data)
+      #define PARALLILOS_LOADA_I32(data)           _mm256_load_si256((const __m256i*)data)
+      #define PARALLILOS_STOREU_I32(addr, data)    _mm256_storeu_si256 ((__m256i*)addr, data)
+      #define PARALLILOS_STOREA_I32(addr, data)    _mm256_store_si256((__m256i*)addr, data)
+      #define PARALLILOS_SETVAL_I32(value)         _mm256_set1_epi32(value)
+      #define PARALLILOS_SETZERO_I32()             _mm256_setzero_si256()
+      #define PARALLILOS_MUL_I32(a, b)             _mm256_mul_epi32(a, b)
+      #define PARALLILOS_ADD_I32(a, b)             _mm256_add_epi32(a, b)
+      #define PARALLILOS_SUB_I32(a, b)             _mm256_sub_epi32(a, b)
+      #define PARALLILOS_DIV_I32(a, b)             _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
+      #define PARALLILOS_SQRT_I32(a)               _mm256_cvtps_epi32(_mm256_sqrt_ps(_mm256_cvtepi32_ps(a)))
+      #define PARALLILOS_ADDMUL_I32(a, b, c)       _mm256_add_epi32(a, _mm256_mul_epi32(b, c))
+      #define PARALLILOS_SUBMUL_I32(a, b, c)       _mm256_sub_epi32(a, _mm256_mul_epi32(b, c))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32(a, b)           _mm256_div_epi32(a, b)
+      #endif
+    #elif defined(PARALLILOS_SSE4_1)
+      #define PARALLILOS_SET_I32                   "SSE4.1, SSE2"
+      #define PARALLILOS_TYPE_I32                  __m128i
+      #define PARALLILOS_ALIGNMENT_I32             16
+      #define PARALLILOS_LOADU_I32(data)           _mm_loadu_si128((const __m128i*)data)
+      #define PARALLILOS_LOADA_I32(data)           _mm_load_si128((const __m128i*)data)
+      #define PARALLILOS_STOREU_I32(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
+      #define PARALLILOS_STOREA_I32(addr, data)    _mm_store_si128((__m128i*)addr, data)
+      #define PARALLILOS_SETVAL_I32(value)         _mm_set1_epi32(value)
+      #define PARALLILOS_SETZERO_I32()             _mm_setzero_si128()
+      #define PARALLILOS_MUL_I32(a, b)             _mm_mul_epi32(a, b)
+      #define PARALLILOS_ADD_I32(a, b)             _mm_add_epi32(a, b)
+      #define PARALLILOS_SUB_I32(a, b)             _mm_sub_epi32(a, b)
+      #define PARALLILOS_DIV_I32(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+      #define PARALLILOS_SQRT_I32(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
+      #define PARALLILOS_ADDMUL_I32(a, b, c)       _mm_add_epi32(a, _mm_mul_epi32(b, c))
+      #define PARALLILOS_SUBMUL_I32(a, b, c)       _mm_sub_epi32(a, _mm_mul_epi32(b, c))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32(a, b)           _mm_div_epi32(a, b)
+      #endif
+    #elif defined(PARALLILOS_SSE2)
+      #define PARALLILOS_SET_I32                   "SSE2"
+      #define PARALLILOS_TYPE_I32                  __m128i
+      #define PARALLILOS_ALIGNMENT_I32             16
+      #define PARALLILOS_LOADU_I32(data)           _mm_loadu_si128((const __m128i*)data)
+      #define PARALLILOS_LOADA_I32(data)           _mm_load_si128((const __m128i*)data)
+      #define PARALLILOS_STOREU_I32(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
+      #define PARALLILOS_STOREA_I32(addr, data)    _mm_store_si128((__m128i*)addr, data)
+      #define PARALLILOS_SETVAL_I32(value)         _mm_set1_epi32(value)
+      #define PARALLILOS_SETZERO_I32()             _mm_setzero_si128()
+      #define PARALLILOS_MUL_I32(a, b)             _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+      #define PARALLILOS_ADD_I32(a, b)             _mm_add_epi32(a, b)
+      #define PARALLILOS_SUB_I32(a, b)             _mm_sub_epi32(a, b)
+      #define PARALLILOS_DIV_I32(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+      #define PARALLILOS_SQRT_I32(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
+      #define PARALLILOS_ADDMUL_I32(a, b, c)       _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+      #define PARALLILOS_SUBMUL_I32(a, b, c)       _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+      #if defined(PARALLILOS_SVML)
+        #undef  PARALLILOS_DIV_I32
+        #define PARALLILOS_DIV_I32(a, b)           _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+      #endif
     #endif
   
     #ifdef PARALLILOS_TYPE_I32
@@ -986,15 +944,19 @@ namespace Parallilos
     template<typename T>
     unique_array<T> allocate(const size_t number_of_elements)
     {
+    // early return
+    if (number_of_elements == 0)
+      return unique_array<T>(nullptr);
+
+    // alignment requirement for simd
+    constexpr size_t alignment = simd_properties<T>::alignment;
+    
     #if __cplusplus >= 201703L
-      return reinterpret_cast<T*>(std::aligned_alloc(simd_properties<T>::alignment, number_of_elements * sizeof(T)));
+      if (simd_properties<T>::alignment == 0)
+        return reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T)));
+      else
+        return reinterpret_cast<T*>(std::aligned_alloc(alignment, number_of_elements * sizeof(T)));
     #else
-      // early return
-      if (number_of_elements == 0)
-        return unique_array<T>(nullptr);
-
-      constexpr size_t alignment = simd_properties<T>::alignment;
-
       // allocate
       void* memory_block = std::malloc(number_of_elements * sizeof(T) + alignment);
       
@@ -1023,9 +985,9 @@ namespace Parallilos
       std::free(addr);
     #else
       if (addr != nullptr) {
-        if (simd_properties<T>::alignment == 0)
-          std::free(addr);
-        else std::free(reinterpret_cast<void**>(addr)[-1]);
+        if (simd_properties<T>::alignment != 0)
+          std::free(reinterpret_cast<void**>(addr)[-1]);
+        else std::free(addr);
       }
     #endif
     }
@@ -1037,401 +999,305 @@ namespace Parallilos
     }
 
     template<typename T>
-    T* add_arrays(const T* a, const T* b, T* r, const size_t n)
+    void add_arrays(const T* a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(b) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_add(simd_loada(a+k), simd_loada(b+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(b) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_add(simd_loada(a+k), simd_loada(b+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_add(simd_loadu(a+k), simd_loadu(b+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_add(simd_loadu(a+k), simd_loadu(b+k)));
-        }
-      }
-    #endif
+
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a[k] + b[k];
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* add_arrays(const T a, const T* b, T* r, const size_t n)
+    void add_arrays(const T a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const typename simd_properties<T>::type a_vector = simd_setval(a);
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(b) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_add(a_vector, simd_loada(b+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        const typename simd_properties<T>::type a_vector = simd_setval(a);
+        if (is_aligned(a) && is_aligned(b) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_add(a_vector, simd_loada(b+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_add(a_vector, simd_loadu(b+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_add(a_vector, simd_loadu(b+k)));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a + b[k];
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* add_arrays(const T* a, const T b, T* r, const size_t n)
+    void add_arrays(const T* a, const T b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const typename simd_properties<T>::type b_vector = simd_setval(b);
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_add(simd_loada(a+k), b_vector));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const typename simd_properties<T>::type b_vector = simd_setval(b);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_add(simd_loada(a+k), b_vector));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_add(simd_loadu(a+k), b_vector));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_add(simd_loadu(a+k), b_vector));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a[k] + b;
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* mul_arrays(const T* a, const T* b, T* r, const size_t n)
+    void mul_arrays(const T* a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(b) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_mul(simd_loada(a+k), simd_loada(b+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(b) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_mul(simd_loada(a+k), simd_loada(b+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_mul(simd_loadu(a+k), simd_loadu(b+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_mul(simd_loadu(a+k), simd_loadu(b+k)));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a[k] * b[k];
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* mul_arrays(const T a, const T* b, T* r, const size_t n)
+    void mul_arrays(const T a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const typename simd_properties<T>::type a_vector = simd_setval(a);
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(b) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_mul(a_vector, simd_loada(b+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const typename simd_properties<T>::type a_vector = simd_setval(a);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(b) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_mul(a_vector, simd_loada(b+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_mul(a_vector, simd_loadu(b+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_mul(a_vector, simd_loadu(b+k)));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a * b[k];
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* mul_arrays(const T* a, const T b, T* r, const size_t n)
+    void mul_arrays(const T* a, const T b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const typename simd_properties<T>::type b_vector = simd_setval(b);
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_mul(simd_loada(a+k), b_vector));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const typename simd_properties<T>::type b_vector = simd_setval(b);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_mul(simd_loada(a+k), b_vector));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_mul(simd_loadu(a+k), b_vector));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_mul(simd_loadu(a+k), b_vector));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a[k] * b;
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* sub_arrays(const T* a, const T* b, T* r, const size_t n)
+    void sub_arrays(const T* a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(b) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_sub(simd_loada(a+k), simd_loada(b+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(b) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_sub(simd_loada(a+k), simd_loada(b+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_sub(simd_loadu(a+k), simd_loadu(b+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_sub(simd_loadu(a+k), simd_loadu(b+k)));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a[k] - b[k];
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* sub_arrays(const T a, const T* b, T* r, const size_t n)
+    void sub_arrays(const T a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const typename simd_properties<T>::type a_vector = simd_setval(a);
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(b) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_sub(a_vector, simd_loada(b+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const typename simd_properties<T>::type a_vector = simd_setval(a);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(b) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_sub(a_vector, simd_loada(b+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_sub(a_vector, simd_loadu(b+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_sub(a_vector, simd_loadu(b+k)));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a - b[k];
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* sub_arrays(const T* a, const T b, T* r, const size_t n)
+    void sub_arrays(const T* a, const T b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const typename simd_properties<T>::type b_vector = simd_setval(b);
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_sub(simd_loada(a+k), b_vector));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const typename simd_properties<T>::type b_vector = simd_setval(b);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_sub(simd_loada(a+k), b_vector));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_sub(simd_loadu(a+k), b_vector));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_sub(simd_loadu(a+k), b_vector));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = a[k] - b;
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* div_arrays(const T* a, const T* b, T* r, const size_t n)
+    void div_arrays(const T* a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(b) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_div(simd_loada(a+k), simd_loada(b+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(b) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_div(simd_loada(a+k), simd_loada(b+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_div(simd_loadu(a+k), simd_loadu(b+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_div(simd_loadu(a+k), simd_loadu(b+k)));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = (b[k] != 0) ? a[k] / b[k] : std::numeric_limits<T>::min();
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* div_arrays(const T a, const T* b, T* r, const size_t n)
+    void div_arrays(const T a, const T* b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const typename simd_properties<T>::type a_vector = simd_setval(a);
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(b) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_div(a_vector, simd_loada(b+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const typename simd_properties<T>::type a_vector = simd_setval(a);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(b) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_div(a_vector, simd_loada(b+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_div(a_vector, simd_loadu(b+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_div(a_vector, simd_loadu(b+k)));
-        }
-      }
-    #endif
 
       // sequential fallback
-      if (a != 0) {
-        for (; k < n; ++k) {
+      if (a != 0)
+        for (; k < n; ++k)
           r[k] = (b[k] != 0) ? a / b[k] : std::numeric_limits<T>::min();
-        }
-      }
-      else {
-        for (; k < n; ++k) {
+      else
+        for (; k < n; ++k)
           r[k] = (b[k] == 0);
-        }
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* div_arrays(const T* a, const T b, T* r, const size_t n)
+    void div_arrays(const T* a, const T b, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const typename simd_properties<T>::type b_vector = simd_setval(b);
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_div(simd_loada(a+k), b_vector));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const typename simd_properties<T>::type b_vector = simd_setval(b);
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_div(simd_loada(a+k), b_vector));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_div(simd_loadu(a+k), b_vector));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_div(simd_loadu(a+k), b_vector));
-        }
-      }
-    #endif
 
       // sequential fallback
-      if (b != 0) {
-        for (; k < n; ++k) {
+      if (b != 0)
+        for (; k < n; ++k)
           r[k] = a[k] / b;
-        }
-      }
-      else {
-        for (; k < n; ++k) {
+      else
+        for (; k < n; ++k)
           r[k] = std::numeric_limits<T>::min();
-        }
-      }
-
-      return r;
     }
 
     template<typename T>
-    T* sqrt_array(const T* a, T* r, const size_t n)
+    void sqrt_array(const T* a, T* r, const size_t n)
     {
       size_t k = 0;
 
-    #ifdef PARALLILOS_PARALLELISM
       // parallel addition using SIMD
-      const size_t size = simd_properties<T>::size;
-      const size_t iterations = simd_properties<T>::iterations(n);
-      if (is_aligned(a) && is_aligned(r)) {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storea(r+k, simd_sqrt(simd_loada(a+k)));
-        }
+      if (simd_properties<T>::alignment != 0) {
+        const size_t size = simd_properties<T>::size;
+        const size_t iterations = simd_properties<T>::iterations(n);
+        if (is_aligned(a) && is_aligned(r))
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storea(r+k, simd_sqrt(simd_loada(a+k)));
+        else
+          for (size_t i = 0; i < iterations; ++i, k+=size)
+            simd_storeu(r+k, simd_sqrt(simd_loadu(a+k)));
       }
-      else {
-        for (size_t i = 0; i < iterations; ++i, k+=size) {
-          simd_storeu(r+k, simd_sqrt(simd_loadu(a+k)));
-        }
-      }
-    #endif
 
       // sequential fallback
-      for (; k < n; ++k) {
+      for (; k < n; ++k)
         r[k] = std::sqrt(a[k]);
-      }
-
-      return r;
     }
   
     // cleanup namespace
@@ -1479,7 +1345,7 @@ namespace Parallilos
     #undef PARALLILOS_MUL_I32
     #undef PARALLILOS_SUB_I32
     #undef PARALLILOS_DIV_I32
-    #undef PARALLILOS_DIV_F32
+    #undef PARALLILOS_DIV_I32
     #undef PARALLILOS_SQRT_I32
     #undef PARALLILOS_ADDMUL_I32
     #undef PARALLILOS_SUBMUL_I32
@@ -1487,32 +1353,8 @@ namespace Parallilos
     #undef PARALLILOS_INLINE
     #undef PARALLILOS_COMPILER_SUPPORTS_SSE
     #undef PARALLILOS_COMPILER_SUPPORTS_AVX
+    #undef PARALLILOS_COMPILER_SUPPORTS_SVML
     #undef PARALLILOS_COMPILER_SUPPORTS_NEON
   }
 }
 #endif
-
-/*
-
-// Define the predetermined list of types
-using TypeList = std::tuple<int, float, double, char>;
-
-// Helper struct to check if a type is in the list
-template<typename T, typename... Types>
-struct IsOneOf;
-
-// Base case: Type is not found in the list
-template<typename T>
-struct IsOneOf<T> : std::false_type {};
-
-// Recursive case: Check if the type matches the first type in the list
-template<typename T, typename... Types>
-struct IsOneOf<T, T, Types...> : std::true_type {};
-
-// Recursive case: Continue checking with the remaining types in the list
-template<typename T, typename U, typename... Types>
-struct IsOneOf<T, U, Types...> : IsOneOf<T, Types...> {};
-
-
-
-*/

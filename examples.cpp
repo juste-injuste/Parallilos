@@ -3,7 +3,7 @@
 #include <vector>
 #include <array>
 #include <memory>
-#include "../include/Parallilos.hpp"
+#include "include/Parallilos.hpp"
 
 void stack_array()
 {
@@ -114,10 +114,9 @@ void custom_implementation()
     a[k] = k;
     b[k] = k + n;
   }
-
-  const size_t iterations = simd_properties<type>::iterations(n);
   
   // SIMD-enhanced
+  const size_t iterations = simd_properties<type>::iterations(n);
   size_t k = 0;
   for (size_t i = 0; i < iterations; ++i, k+=simd_properties<type>::size)
     simd_storea(c.get()+k, simd_add(simd_loada(a.get()+k), simd_loada(b.get()+k)));
@@ -151,4 +150,3 @@ int main()
   std::cout << "\ncustom implementation example:\n";
   custom_implementation();
 }
-// -mno-avx512f -mno-avx2 -mno-avx -mno-sse4.2 -mno-sse4.1 -mno-ssse3 -mno-sse3 -mno-sse2
