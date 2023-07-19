@@ -1,3 +1,5 @@
+// include this file to support signed 32 bit integers
+
 #include "../include/Parallilos.hpp"
 
 namespace Parallilos

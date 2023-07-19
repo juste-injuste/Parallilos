@@ -7,7 +7,7 @@
 //#include "experimental/int32_support.hpp"
 
 template<typename T>
-void print_array(T* array, size_t n)
+void print_info(T* array, size_t n)
 {
   for (size_t k = 0; k < n; ++k)
     std::cout << array[k] << ' ';
@@ -18,97 +18,100 @@ void print_array(T* array, size_t n)
   std::cout << "Sequential passes: " << Parallilos::simd_properties<T>::sequential(n) << '\n';
 }
 
-template<typename type>
+template<typename T>
 void stack_array()
 {
-  // stack allocated array
+  // stack array
   const size_t n = 20;
-  type a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  type b[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  type c[n];
+  T a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  T b[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  T c[n];
 
-  // SIMD-enhanced
+  // SIMD-enhanced operation
   Parallilos::add_arrays(a, b, c, n);
 
   // display result array
-  print_array(c, n);
+  print_info(c, n);
 }
 
-template<typename type>
+template<typename T>
 void standard_vector()
 {
   // dynamic array
   const size_t n = 20;
-  std::vector<type> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::vector<type> b = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::vector<type> c(n);
+  std::vector<T> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::vector<T> b = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::vector<T> c(n);
 
-  // SIMD-enhanced
+  // SIMD-enhanced operation
   Parallilos::mul_arrays(a.data(), b.data(), c.data(), n);
 
   // display result array
-  print_array(c.data(), n);
+  print_info(c.data(), n);
 }
 
-template<typename type>
+template<typename T>
 void heap_array()
 {
-  // heap allocated array
+  // heap array
   const size_t n = 20;
-  std::unique_ptr<type[]> a = std::unique_ptr<type[]>(new type[n]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-  std::unique_ptr<type[]> b = std::unique_ptr<type[]>(new type[n]{9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-  std::unique_ptr<type[]> c = std::unique_ptr<type[]>(new type[n]);
+  std::unique_ptr<T[]> a = std::unique_ptr<T[]>(new T[n]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  std::unique_ptr<T[]> b = std::unique_ptr<T[]>(new T[n]{9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  std::unique_ptr<T[]> c = std::unique_ptr<T[]>(new T[n]);
 
-  // SIMD-enhanced
+  // SIMD-enhanced operation
   Parallilos::sub_arrays(a.get(), b.get(), c.get(), n);
 
   // display result array
-  print_array(c.get(), n);
+  print_info(c.get(), n);
 }
 
-template<typename type>
+template<typename T>
 void standard_array()
 {
-  // fixed-size array
+  // standard array
   const size_t n = 20;
-  std::array<type, n> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::array<type, n> b = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::array<type, n> c;
+  std::array<T, n> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::array<T, n> b = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  std::array<T, n> c;
 
-  // SIMD-enhanced
+  // SIMD-enhanced operation
   Parallilos::div_arrays(a.data(), b.data(), c.data(), n);
 
   // display result array
-  print_array(c.data(), n);
+  print_info(c.data(), n);
 }
 
-template<typename type>
+template<typename T>
 void custom_implementation()
 {
   using namespace Parallilos;
 
   // aligned memory allocation
   const size_t n = 16;
-  unique_array<type> a = get_array<type>(n);
-  unique_array<type> b = get_array<type>(n);
-  unique_array<type> c = get_array<type>(n);
+  unique_array<T> a = get_array<T>(n);
+  unique_array<T> b = get_array<T>(n);
+  unique_array<T> c = get_array<T>(n);
 
   // initialize arrays
   for (size_t k = 0; k < n; ++k) {
     a[k] = k;
     b[k] = k + n;
   }
-  
-  // SIMD-enhanced
-  const size_t iterations = simd_properties<type>::iterations(n);
+
+  // SIMD-enhanced operation
+  T* a_data = a.get();
+  T* b_data = b.get();
+  T* c_data = c.get();
+  const size_t iterations = simd_properties<T>::iterations(n);
   size_t k = 0;
-  for (size_t i = 0; i < iterations; ++i, k+=simd_properties<type>::size)
-    simd_storea(c.get()+k, simd_add(simd_loada(a.get()+k), simd_loada(b.get()+k)));
+  for (size_t i = 0; i < iterations; ++i, k+=simd_properties<T>::size)
+    simd_storea(c_data+k, simd_add(simd_loada(a_data+k), simd_loada(b_data+k)));
   for (; k < n; ++k)
-    c[k] = a[k] + b[k];
+    c_data[k] = a_data[k] + b_data[k];
 
   // display result array
-  print_array(c.get(), n);
+  print_info(c.get(), n);
 }
 
 int main()
