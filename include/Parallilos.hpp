@@ -831,7 +831,7 @@ namespace Parallilos
     template<typename T>
     bool is_aligned(const T* addr)
     {
-      return (size_t(addr) & (simd_properties<T>::alignment - 1)) == 0;
+      return (uintptr_t(addr) & (simd_properties<T>::alignment - 1)) == 0;
     }
   
   // cleanup namespace
