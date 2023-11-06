@@ -799,7 +799,7 @@ namespace Parallilos
         return Array<T>(reinterpret_cast<T*>(memory_block));
 
       // align on alignement boundary
-      void* aligned_memory_block = reinterpret_cast<void*>((size_t(memory_block) + alignment) & ~(alignment - 1));
+      void* aligned_memory_block = reinterpret_cast<void*>((uintptr_t(memory_block) + alignment) & ~(alignment - 1));
 
       // bookkeeping of original memory block
       reinterpret_cast<void**>(aligned_memory_block)[-1] = memory_block;
