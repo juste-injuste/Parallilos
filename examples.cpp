@@ -89,9 +89,9 @@ void custom_implementation()
 
   // aligned memory allocation
   const size_t n = 16;
-  unique_array<T> a = get_array<T>(n);
-  unique_array<T> b = get_array<T>(n);
-  unique_array<T> c = get_array<T>(n);
+  Array<T> a = get_array<T>(n);
+  Array<T> b = get_array<T>(n);
+  Array<T> c = get_array<T>(n);
 
   // initialize arrays
   for (size_t k = 0; k < n; ++k) {
