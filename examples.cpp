@@ -15,9 +15,9 @@ void print_info(T* array, size_t n)
     std::cout << array[k] << ' ';
   std::cout << '\n';
   
-  std::cout << "Instruction set:   " << Parallilos::simd_properties<T>::set << '\n';
-  std::cout << "Parallel passes:   " << Parallilos::simd_properties<T>::iterations(n) << '\n';
-  std::cout << "Sequential passes: " << Parallilos::simd_properties<T>::sequential(n) << '\n';
+  std::cout << "Instruction set:   " << Parallilos::simd<T>::set << '\n';
+  std::cout << "Parallel passes:   " << Parallilos::simd<T>::passes(n) << '\n';
+  std::cout << "Sequential passes: " << Parallilos::simd<T>::sequential(n) << '\n';
 }
 
 template<typename T>
@@ -107,9 +107,9 @@ void custom_implementation()
   T* b_data = b.get();
   T* c_data = c.get();
 
-  const size_t iterations = simd_properties<T>::iterations(n);
+  const size_t passes = simd<T>::passes(n);
   size_t k = 0;
-  for (size_t i = 0; i < iterations; ++i, k+=simd_properties<T>::size)
+  for (size_t i = 0; i < passes; ++i, k+=simd<T>::size)
   {
     simd_storea(c_data+k, simd_add(simd_loada(a_data+k), simd_loada(b_data+k)));
   }

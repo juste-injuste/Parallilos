@@ -109,7 +109,7 @@ namespace Parallilos
 # define PARALLILOS_ARITHMETIC(T) typename T, typename = typename std::is_arithmetic<T>::type
 
 // Vector type associated with T
-# define PARALLILOS_VECTOR_OF(T)  typename simd_properties<T>::vector_type
+# define PARALLILOS_VECTOR_OF(T)  typename simd<T>::vector_type
 
   // logging utilities
 #if defined(PARALLILOS_WARNINGS)
@@ -172,29 +172,39 @@ namespace Parallilos
 
     // unsupported type fallback
     template<PARALLILOS_ARITHMETIC(T)>
-    struct simd_properties
+    struct simd
     {
       using vector_type = T;
-      static constexpr const char* set = "no SIMD instruction set used for this type";
+      static constexpr const char* set  = "no SIMD instruction set used for this type";
       static constexpr size_t alignment = 0;
-      static constexpr size_t size = 1;
+      static constexpr size_t size      = 1;
 
-      static constexpr size_t inline iterations(const size_t)
+      static constexpr size_t inline passes(const size_t)
       {
         return 0;
       }
 
-      static constexpr size_t inline sequential(const size_t n)
+      static constexpr size_t inline sequential(const size_t n_elements)
       {
-        return n;
+        return n_elements;
       }
 
-      simd_properties() = delete;
+      simd(const size_t n_elements) noexcept :
+        passes_left(passes(n_elements))
+      {}
+      inline size_t operator*() noexcept {return current_index;}
+      inline void operator++() noexcept {--passes_left, current_index += size;}
+      inline bool operator!=(const simd&) noexcept {return passes_left;}
+      inline simd& begin() noexcept {return *this;}
+      inline simd end() noexcept {return simd{0};}
+      private:
+        size_t       passes_left;
+        size_t       current_index = 0;
     };
     
     // treat const T as T
     template <typename T>
-    struct simd_properties<const T> : simd_properties<T>
+    struct simd<const T> : simd<T>
     {};
 
     // load a vector from unaligned data
@@ -539,24 +549,34 @@ namespace Parallilos
 
 # ifdef PARALLILOS_TYPE_F32
     template <>
-    struct simd_properties<float>
+    struct simd<float>
     {
       using vector_type = PARALLILOS_TYPE_F32;
-      static constexpr const char* set = PARALLILOS_SET_F32;
+      static constexpr const char* set  = PARALLILOS_SET_F32;
       static constexpr size_t alignment = PARALLILOS_ALIGNMENT_F32;
-      static constexpr size_t size = sizeof(vector_type) / sizeof(float);
+      static constexpr size_t size      = sizeof(vector_type) / sizeof(float);
 
-      static constexpr size_t inline iterations(const size_t n)
+      static constexpr size_t inline passes(const size_t n_elements)
       {
-        return n / size;
+        return n_elements / size;
       }
       
-      static constexpr size_t inline sequential(const size_t n)
+      static constexpr size_t inline sequential(const size_t n_elements)
       {
-        return n - iterations(n)*size;
+        return n_elements - passes(n_elements)*size;
       }
 
-      simd_properties() = delete;
+      simd(const size_t n_elements) noexcept :
+        passes_left(passes(n_elements))
+      {}
+      inline size_t operator*() noexcept {return current_index;}
+      inline void operator++() noexcept {--passes_left, current_index += size;}
+      inline bool operator!=(const simd&) noexcept {return passes_left;}
+      inline simd& begin() noexcept {return *this;}
+      inline simd end() noexcept {return simd{0};}
+      private:
+        size_t       passes_left;
+        size_t       current_index = 0;
     };
 
     template<>
@@ -729,24 +749,34 @@ namespace Parallilos
     // define a standard API to use SIMD intrinsics
 # ifdef PARALLILOS_TYPE_F64
     template<>
-    struct simd_properties<double>
+    struct simd<double>
     {
       using vector_type = PARALLILOS_TYPE_F64;
-      static constexpr const char* set = PARALLILOS_SET_F64;
+      static constexpr const char* set  = PARALLILOS_SET_F64;
       static constexpr size_t alignment = PARALLILOS_ALIGNMENT_F64;
-      static constexpr size_t size = sizeof(vector_type) / sizeof(float);
+      static constexpr size_t size      = sizeof(vector_type) / sizeof(float);
 
-      static constexpr size_t inline iterations(const size_t n)
+      static constexpr size_t inline passes(const size_t n_elements)
       {
-        return n / size;
+        return n_elements / size;
       }
 
-      static constexpr size_t inline sequential(const size_t n)
+      static constexpr size_t inline sequential(const size_t n_elements)
       {
-        return n - iterations(n)*size;
+        return n_elements - passes(n_elements)*size;
       }
 
-      simd_properties() = delete;
+      simd(const size_t n_elements) noexcept :
+        passes_left(passes(n_elements))
+      {}
+      inline size_t operator*() noexcept {return current_index;}
+      inline void operator++() noexcept {--passes_left, current_index += size;}
+      inline bool operator!=(const simd&) noexcept {return passes_left;}
+      inline simd& begin() noexcept {return *this;}
+      inline simd end() noexcept {return simd{0};}
+      private:
+        size_t       passes_left;
+        size_t       current_index = 0;
     };
 
     template<>
@@ -847,7 +877,7 @@ namespace Parallilos
       }
 
       // alignment requirement for simd
-      constexpr size_t alignment = simd_properties<T>::alignment;
+      constexpr size_t alignment = simd<T>::alignment;
 
       // nothing special needed
       if (alignment == 0)
@@ -884,7 +914,7 @@ namespace Parallilos
     void free_array(T* addr)
     {
 #   if __cplusplus < 201703L
-      if (simd_properties<T>::alignment && addr)
+      if (simd<T>::alignment && addr)
       {
         std::free(reinterpret_cast<void**>(addr)[-1]);
         return;
@@ -897,7 +927,7 @@ namespace Parallilos
     template<PARALLILOS_ARITHMETIC(T)>
     bool is_aligned(const T* addr)
     {
-      return (uintptr_t(addr) & (simd_properties<T>::alignment - 1)) == 0;
+      return (uintptr_t(addr) & (simd<T>::alignment - 1)) == 0;
     }
 
 # undef PARALLILOS_TYPE_WARNING

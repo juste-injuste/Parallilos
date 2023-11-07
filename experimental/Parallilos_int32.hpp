@@ -98,24 +98,34 @@ namespace Parallilos
   
 # ifdef PARALLILOS_TYPE_I32
     template <>
-    struct simd_properties<int32_t>
+    struct simd<int32_t>
     {
       using vector_type = PARALLILOS_TYPE_I32;
-      static constexpr const char* set = PARALLILOS_SET_I32;
+      static constexpr const char* set  = PARALLILOS_SET_I32;
       static constexpr size_t alignment = PARALLILOS_ALIGNMENT_I32;
-      static constexpr size_t size = sizeof(vector_type) / sizeof(int32_t);
+      static constexpr size_t size      = sizeof(vector_type) / sizeof(int32_t);
 
-      static constexpr size_t inline iterations(const size_t n)
+      static constexpr size_t inline passes(const size_t n)
       {
         return n / size;
       }
 
       static constexpr size_t inline sequential(const size_t n)
       {
-        return n - iterations(n)*size;
+        return n - passes(n)*size;
       }
-      
-      simd_properties() = delete;
+
+      simd(const size_t n_elements) noexcept :
+        passes_left(passes(n_elements))
+      {}
+      inline size_t operator*() noexcept {return current_index;}
+      inline void operator++() noexcept {--passes_left, current_index += size;}
+      inline bool operator!=(const simd&) noexcept {return passes_left;}
+      inline simd& begin() noexcept {return *this;}
+      inline simd end() noexcept {return simd{0};}
+      private:
+        size_t       passes_left;
+        size_t       current_index = 0;
     };
 
     template<>
