@@ -37,16 +37,23 @@ facilitate generic parallelism.
 #ifndef PARALLILOS_HPP
 #define PARALLILOS_HPP
 // --necessary standard libraries-------------------------------------------------------------------
-#include <cstddef> // for size_t
-#include <cmath>   // for std::sqrt
-#include <cstdlib> // for std::malloc, std::free
-#include <cstdint> // for int32_t
-#include <limits>  // for std::numeric_limits
-#include <memory>  // for std::unique_ptr
+#include <cstddef>  // for size_t
+#include <cmath>    // for std::sqrt
+#include <cstdlib>  // for std::malloc, std::free
+#include <limits>   // for std::numeric_limits
+#include <memory>   // for std::unique_ptr
+#include <ostream>  // for std::ostream
+#include <iostream> // for std::cerr
+# include <type_traits> // for std::is_arithmetic
+#if defined(PARALLILOS_WARNINGS)
+# include <string>      // for std::string, std::to_string
+# include <type_traits> // for std::is_integral, std::is_unsigned, std::is_floating_point
+# include <typeinfo>    // to use operator typeid
+#endif
 // --Parallilos library-----------------------------------------------------------------------------
 namespace Parallilos
 {
-  namespace Version
+  namespace _Version
   {
     // library version
     constexpr long NUMBER = 000001000;
@@ -54,138 +61,187 @@ namespace Parallilos
     constexpr long MINOR  =    001   ;
     constexpr long PATCH  =       000;
   }
+
+  namespace Global
+  {
+    std::ostream wrn{std::cerr.rdbuf()};
+  }
+
+  // define which instruction sets are supported and the best way to inline given the compiler
+#if defined(__GNUC__)
+# define PARALLILOS_COMPILER_SUPPORTS_SSE
+# define PARALLILOS_COMPILER_SUPPORTS_AVX
+# define PARALLILOS_COMPILER_SUPPORTS_NEON
+# define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#elif defined(__clang__)
+# define PARALLILOS_COMPILER_SUPPORTS_SSE
+# define PARALLILOS_COMPILER_SUPPORTS_AVX
+# define PARALLILOS_COMPILER_SUPPORTS_NEON
+# define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#elif defined(__MINGW32__) || defined(__MINGW64__)
+# define PARALLILOS_COMPILER_SUPPORTS_SSE
+# define PARALLILOS_COMPILER_SUPPORTS_AVX
+# define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#elif defined(__apple_build_version__)
+# define PARALLILOS_COMPILER_SUPPORTS_SSE
+# define PARALLILOS_COMPILER_SUPPORTS_AVX
+# define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#elif defined(_MSC_VER)
+# define PARALLILOS_COMPILER_SUPPORTS_SSE
+# define PARALLILOS_COMPILER_SUPPORTS_AVX
+# define PARALLILOS_INLINE __forceinline
+#elif defined(__INTEL_COMPILER)
+# define PARALLILOS_COMPILER_SUPPORTS_SSE
+# define PARALLILOS_COMPILER_SUPPORTS_AVX
+# define PARALLILOS_COMPILER_SUPPORTS_SVML
+# define PARALLILOS_INLINE __forceinline
+#elif defined(__ARMCC_VERSION)
+# define PARALLILOS_COMPILER_SUPPORTS_NEON
+# define PARALLILOS_INLINE __forceinline
+#else
+# if __cplusplus >= 202302L
+#   warning "warning: Parallilos: your compiler is not supported."
+# endif
+# define PARALLILOS_INLINE inline
+#endif
+
+// Arithmetic "concept"
+# define PARALLILOS_ARITHMETIC(T) typename T, typename = typename std::is_arithmetic<T>::type
+
+// Vector type associated with T
+# define PARALLILOS_VECTOR_OF(T)  typename simd_properties<T>::vector_type
+
+  // logging utilities
+#if defined(PARALLILOS_WARNINGS)
+  namespace Logging
+  {
+    template<PARALLILOS_ARITHMETIC(T)>
+    inline std::string type_name()
+    {
+      if (std::is_floating_point<T>::value)
+      {
+        return "float" + std::to_string(sizeof(T) * 8);
+      }
+
+      if (std::is_unsigned<T>::value)
+      {
+        return "uint" + std::to_string(sizeof(T) * 8);
+      }
+
+      return "int" + std::to_string(sizeof(T) * 8);
+    }
+
+    template<typename T, typename... Tn>
+    inline auto get_type_name() -> typename std::enable_if<sizeof...(Tn) == 0, std::string>::type
+    {
+      return type_name<T>();
+    }
+
+    template<typename T, typename... Tn>
+    inline auto get_type_name() -> typename std::enable_if<sizeof...(Tn) != 0, std::string>::type
+    {
+      return type_name<T>() + ", " + get_type_name<Tn...>();
+    }
+  }
+# define PARALLILOS_TYPE_WARNING(...)                                      \
+  Global::wrn << "warning: Parallilos: " << __func__ << '(' <<             \
+  Logging::get_type_name<__VA_ARGS__>() << "): SIMD not used" << std::endl
+#else
+# define PARALLILOS_TYPE_WARNING(...) /* to enable warnings #define PARALLILOS_WARNINGS */
+#endif
 // --Parallilos library: frontend forward declarations----------------------------------------------
   inline namespace Frontend
   {
     // custom deleter which invokes free_array
-    struct deleter;
+    struct Deleter;
 
-    template<typename T>
-    using Array = std::unique_ptr<T[], deleter>;
+    template<PARALLILOS_ARITHMETIC(T)>
+    using Array = std::unique_ptr<T[], Deleter>;
 
     // SIMD aligned memory allocation
-    template<typename T>
-    Array<T> get_array(const size_t number_of_elements);
+    template<PARALLILOS_ARITHMETIC(T)>
+    inline Array<T> make_array(const size_t number_of_elements);
 
     // SIMD aligned memory deallocation
-    template<typename T>
-    void free_array(T* addr);
+    template<PARALLILOS_ARITHMETIC(T)>
+    inline void free_array(T* addr);
 
     // check if an address is aligned for SIMD
-    template<typename T>
-    bool is_aligned(const T* addr);
-
-    // define which instruction sets are supported and the best way to inline given the compiler
-# if defined(__GNUC__)
-#   define PARALLILOS_COMPILER_SUPPORTS_SSE
-#   define PARALLILOS_COMPILER_SUPPORTS_AVX
-#   define PARALLILOS_COMPILER_SUPPORTS_NEON
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# elif defined(__clang__)
-#   define PARALLILOS_COMPILER_SUPPORTS_SSE
-#   define PARALLILOS_COMPILER_SUPPORTS_AVX
-#   define PARALLILOS_COMPILER_SUPPORTS_NEON
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# elif defined(__MINGW32__) || defined(__MINGW64__)
-#   define PARALLILOS_COMPILER_SUPPORTS_SSE
-#   define PARALLILOS_COMPILER_SUPPORTS_AVX
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# elif defined(__apple_build_version__)
-#   define PARALLILOS_COMPILER_SUPPORTS_SSE
-#   define PARALLILOS_COMPILER_SUPPORTS_AVX
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# elif defined(_MSC_VER)
-#   define PARALLILOS_COMPILER_SUPPORTS_SSE
-#   define PARALLILOS_COMPILER_SUPPORTS_AVX
-#   define PARALLILOS_INLINE __forceinline
-# elif defined(__INTEL_COMPILER)
-#   define PARALLILOS_COMPILER_SUPPORTS_SSE
-#   define PARALLILOS_COMPILER_SUPPORTS_AVX
-#   define PARALLILOS_COMPILER_SUPPORTS_SVML
-#   define PARALLILOS_INLINE __forceinline
-# elif defined(__ARMCC_VERSION)
-#   define PARALLILOS_COMPILER_SUPPORTS_NEON
-#   define PARALLILOS_INLINE __forceinline
-# else
-#   if __cplusplus >= 202302L
-#     warning "warning: Parallilos: your compiler is not supported."
-#   endif
-#   define PARALLILOS_INLINE inline
-# endif
+    template<PARALLILOS_ARITHMETIC(T)>
+    inline bool is_aligned(const T* addr);
 
     // unsupported type fallback
-    template<typename T>
-    struct simd_properties {
-      using type = T;
-      static constexpr const char* set = "no SIMD instruction set used";
+    template<PARALLILOS_ARITHMETIC(T)>
+    struct simd_properties
+    {
+      using vector_type = T;
+      static constexpr const char* set = "no SIMD instruction set used for this type";
       static constexpr size_t alignment = 0;
       static constexpr size_t size = 1;
-      static constexpr size_t inline iterations(const size_t) { return 0; }
-      static constexpr size_t inline sequential(const size_t n) { return n; }
+
+      static constexpr size_t inline iterations(const size_t)
+      {
+        return 0;
+      }
+
+      static constexpr size_t inline sequential(const size_t n)
+      {
+        return n;
+      }
+
       simd_properties() = delete;
     };
     
     // treat const T as T
     template <typename T>
-    struct simd_properties<const T> : simd_properties<T> {};
+    struct simd_properties<const T> : simd_properties<T>
+    {};
 
     // load a vector from unaligned data
-    template<typename T>
-    PARALLILOS_INLINE typename simd_properties<T>::type simd_loadu(const T* data)
+    template<PARALLILOS_ARITHMETIC(T)>
+    PARALLILOS_INLINE auto simd_loadu(const T* data) -> PARALLILOS_VECTOR_OF(T)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD loadu" << std::endl;
-    #endif
+      PARALLILOS_TYPE_WARNING(T);
       return *data;
     }
 
     // load a vector from aligned data
-    template<typename T>
-    PARALLILOS_INLINE typename simd_properties<T>::type simd_loada(const T* data)
+    template<PARALLILOS_ARITHMETIC(T)>
+    PARALLILOS_INLINE auto simd_loada(const T* data) -> PARALLILOS_VECTOR_OF(T)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD loada" << std::endl; 
-    #endif
+      PARALLILOS_TYPE_WARNING(T);
       return *data;
     }
 
     // store a vector into unaligned memory
-    template<typename T>
-    PARALLILOS_INLINE void simd_storeu(T* addr, typename simd_properties<T>::type data)
+    template<PARALLILOS_ARITHMETIC(T)>
+    PARALLILOS_INLINE void simd_storeu(T* addr, PARALLILOS_VECTOR_OF(T) data)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD storeu" << std::endl; 
-    #endif
+      PARALLILOS_TYPE_WARNING(T, PARALLILOS_VECTOR_OF(T));
       *addr = data;
     }
 
     // store a vector into aligned memory
-    template<typename T>
-    PARALLILOS_INLINE void simd_storea(T* addr, typename simd_properties<T>::type data)
+    template<PARALLILOS_ARITHMETIC(T)>
+    PARALLILOS_INLINE void simd_storea(T* addr, PARALLILOS_VECTOR_OF(T) data)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD storea" << std::endl;
-    #endif 
+      PARALLILOS_TYPE_WARNING(T, PARALLILOS_VECTOR_OF(T));
       *addr = data;
     }
 
     // load a vector with zeros
-    template<typename T, typename V>
-    PARALLILOS_INLINE V simd_setzero(void)
+    template<PARALLILOS_ARITHMETIC(T)>
+    PARALLILOS_INLINE auto simd_setzero() -> PARALLILOS_VECTOR_OF(T)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD setzero" << std::endl; 
-    #endif
+      PARALLILOS_TYPE_WARNING(T);
       return 0;
     }
 
     // load a vector with a specific value
-    template<typename T>
-    PARALLILOS_INLINE typename simd_properties<T>::type simd_setval(const T value)
+    template<PARALLILOS_ARITHMETIC(T)>
+    PARALLILOS_INLINE auto simd_setval(const T value) -> PARALLILOS_VECTOR_OF(T)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD setval" << std::endl;
-    #endif 
+      PARALLILOS_TYPE_WARNING(T);
       return value;
     }
     
@@ -193,9 +249,7 @@ namespace Parallilos
     template<typename V>
     PARALLILOS_INLINE V simd_add(V a, V b)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD add" << std::endl; 
-    #endif
+      PARALLILOS_TYPE_WARNING(V, V);
       return a + b;
     }
 
@@ -203,9 +257,7 @@ namespace Parallilos
     template<typename V>
     PARALLILOS_INLINE V simd_mul(V a, V b)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD mul" << std::endl; 
-    #endif
+      PARALLILOS_TYPE_WARNING(V, V);
       return a * b;
     }
 
@@ -213,19 +265,15 @@ namespace Parallilos
     template<typename V>
     PARALLILOS_INLINE V simd_sub(V a, V b)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD sub" << std::endl; 
-    #endif
-      return a + b;
+      PARALLILOS_TYPE_WARNING(V, V);
+      return a - b;
     }
     
     // [a] / [b]
     template<typename V>
     PARALLILOS_INLINE V simd_div(V a, V b)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD div" << std::endl; 
-    #endif
+      PARALLILOS_TYPE_WARNING(V, V);
       return a / b;
     }
     
@@ -233,9 +281,7 @@ namespace Parallilos
     template<typename V>
     PARALLILOS_INLINE V simd_sqrt(V a)
     { 
-    #ifdef LOGGING
-      std::clog << "non SIMD sqrt" << std::endl;
-    #endif 
+      PARALLILOS_TYPE_WARNING(V);
       return std::sqrt(a);
     }
 
@@ -243,9 +289,7 @@ namespace Parallilos
     template<typename V>
     PARALLILOS_INLINE V simd_addmul(V a, V b, V c)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD addmul" << std::endl; 
-    #endif
+      PARALLILOS_TYPE_WARNING(V, V);
       return a + b * c;
     }
 
@@ -253,9 +297,7 @@ namespace Parallilos
     template<typename V>
     PARALLILOS_INLINE V simd_submul(V a, V b, V c)
     {
-    #ifdef LOGGING
-      std::clog << "non SIMD submul" << std::endl;
-    #endif 
+      PARALLILOS_TYPE_WARNING(V, V, V);
       return a - b * c;
     }
   }
@@ -266,7 +308,7 @@ namespace Parallilos
 #   if defined(__AVX512F__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_AVX512F
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -277,7 +319,7 @@ namespace Parallilos
 #   if defined(__AVX2__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_AVX2
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -288,7 +330,7 @@ namespace Parallilos
 #   if defined(__FMA__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_FMA
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -299,7 +341,7 @@ namespace Parallilos
 #   if defined(__AVX__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_AVX
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -313,7 +355,7 @@ namespace Parallilos
 #   if defined(__SSE4_2__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_SSE4_2
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -324,7 +366,7 @@ namespace Parallilos
 #   if defined(__SSE4_1__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_SSE4_1
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -335,7 +377,7 @@ namespace Parallilos
 #   if defined(__SSSE3__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_SSSE3
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -346,7 +388,7 @@ namespace Parallilos
 #   if defined(__SSE3__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_SSE3
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -357,7 +399,7 @@ namespace Parallilos
 #   if defined(__SSE2__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_SSE2
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -368,7 +410,7 @@ namespace Parallilos
 #   if defined(__SSE__)
 #     define PARALLILOS_PARALLELISM
 #     define PARALLILOS_SSE
-#     if !defined(__OPTIMIZE__)
+#     if not defined(__OPTIMIZE__)
 #       define __OPTIMIZE__
 #       include <immintrin.h>
 #       undef  __OPTIMIZE__
@@ -395,7 +437,7 @@ namespace Parallilos
 #   define PARALLILOS_SVML
 # endif
 
-# if !defined(PARALLILOS_PARALLELISM)
+# if not defined(PARALLILOS_PARALLELISM)
 #   define PARALLILOS_SEQUENTIAL
 #   if __cplusplus >= 202302L
 #     warning "warning: Parallilos: no SIMD instruction set used, sequential fallback used."
@@ -497,13 +539,23 @@ namespace Parallilos
 
 # ifdef PARALLILOS_TYPE_F32
     template <>
-    struct simd_properties<float> {
-      using type = PARALLILOS_TYPE_F32;
+    struct simd_properties<float>
+    {
+      using vector_type = PARALLILOS_TYPE_F32;
       static constexpr const char* set = PARALLILOS_SET_F32;
       static constexpr size_t alignment = PARALLILOS_ALIGNMENT_F32;
-      static constexpr size_t size = sizeof(type) / sizeof(float);
-      static constexpr size_t inline iterations(const size_t n) { return n / size; }
-      static constexpr size_t inline sequential(const size_t n) { return n - iterations(n)*size; }
+      static constexpr size_t size = sizeof(vector_type) / sizeof(float);
+
+      static constexpr size_t inline iterations(const size_t n)
+      {
+        return n / size;
+      }
+      
+      static constexpr size_t inline sequential(const size_t n)
+      {
+        return n - iterations(n)*size;
+      }
+
       simd_properties() = delete;
     };
 
@@ -677,13 +729,23 @@ namespace Parallilos
     // define a standard API to use SIMD intrinsics
 # ifdef PARALLILOS_TYPE_F64
     template<>
-    struct simd_properties<double> {
-      using type = PARALLILOS_TYPE_F64;
+    struct simd_properties<double>
+    {
+      using vector_type = PARALLILOS_TYPE_F64;
       static constexpr const char* set = PARALLILOS_SET_F64;
       static constexpr size_t alignment = PARALLILOS_ALIGNMENT_F64;
-      static constexpr size_t size = sizeof(type) / sizeof(float);
-      static constexpr size_t inline iterations(const size_t n) { return n / size; }
-      static constexpr size_t inline sequential(const size_t n) { return n - iterations(n)*size; }
+      static constexpr size_t size = sizeof(vector_type) / sizeof(float);
+
+      static constexpr size_t inline iterations(const size_t n)
+      {
+        return n / size;
+      }
+
+      static constexpr size_t inline sequential(const size_t n)
+      {
+        return n - iterations(n)*size;
+      }
+
       simd_properties() = delete;
     };
 
@@ -766,37 +828,47 @@ namespace Parallilos
     }
 # endif
 
-    struct deleter {
-      template<typename T>
-      void operator()(T* ptr) { free_array(ptr); }
+    struct Deleter 
+    {
+      template<PARALLILOS_ARITHMETIC(T)>
+      void operator()(T* ptr)
+      {
+        free_array(ptr);
+      }
     };
     
-    template<typename T>
-    Array<T> get_array(const size_t number_of_elements)
+    template<PARALLILOS_ARITHMETIC(T)>
+    Array<T> make_array(const size_t number_of_elements)
     {
-    // early return
-    if (number_of_elements == 0)
-      return Array<T>(nullptr);
+      // early return
+      if (number_of_elements == 0)
+      {
+        return Array<T>(nullptr);
+      }
 
-    // alignment requirement for simd
-    constexpr size_t alignment = simd_properties<T>::alignment;
-    
+      // alignment requirement for simd
+      constexpr size_t alignment = simd_properties<T>::alignment;
+
+      // nothing special needed
+      if (alignment == 0)
+      {
+        return Array<T>(reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T))));
+      }
 #   if __cplusplus >= 201703L
-      if (simd_properties<T>::alignment == 0)
-        return reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T)));
       else
-        return reinterpret_cast<T*>(std::aligned_alloc(alignment, number_of_elements * sizeof(T)));
+      {
+        return Array<T>(reinterpret_cast<T*>(std::aligned_alloc(alignment, number_of_elements * sizeof(T))));
+      }
 #   else
+
       // allocate
       void* memory_block = std::malloc(number_of_elements * sizeof(T) + alignment);
       
       // allocation failure
       if (memory_block == nullptr)
+      {
         return Array<T>(nullptr);
-
-      // no bookeeping needed
-      if (alignment == 0)
-        return Array<T>(reinterpret_cast<T*>(memory_block));
+      }
 
       // align on alignement boundary
       void* aligned_memory_block = reinterpret_cast<void*>((uintptr_t(memory_block) + alignment) & ~(alignment - 1));
@@ -808,33 +880,30 @@ namespace Parallilos
 #   endif
     }
 
-    template<typename T>
+    template<PARALLILOS_ARITHMETIC(T)>
     void free_array(T* addr)
     {
-#   if __cplusplus >= 201703L
-      std::free(addr);
-#   else
-      if (addr != nullptr)
+#   if __cplusplus < 201703L
+      if (simd_properties<T>::alignment && addr)
       {
-        if (simd_properties<T>::alignment != 0)
-        {
-          std::free(reinterpret_cast<void**>(addr)[-1]);
-        }
-        else
-        {
-          std::free(addr);
-        }
+        std::free(reinterpret_cast<void**>(addr)[-1]);
+        return;
       }
 #   endif
+
+      std::free(addr);
     }
 
-    template<typename T>
+    template<PARALLILOS_ARITHMETIC(T)>
     bool is_aligned(const T* addr)
     {
       return (uintptr_t(addr) & (simd_properties<T>::alignment - 1)) == 0;
     }
-  
-  // cleanup namespace
+
+# undef PARALLILOS_TYPE_WARNING
+# undef PARALLILOS_ARITHMETIC
+# undef PARALLILOS_VECTOR_OF
+
 # undef PARALLILOS_TYPE_F32
 # undef PARALLILOS_ALIGNMENT_F32
 # undef PARALLILOS_LOADU_F32

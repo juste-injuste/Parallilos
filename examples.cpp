@@ -3,8 +3,10 @@
 #include <vector>
 #include <array>
 #include <memory>
+#define PARALLILOS_WARNINGS
 #include "include/Parallilos.hpp"
-//#include "experimental/int32_support.hpp"
+#include "experimental/Parallilos_array.hpp"
+// #include "experimental/Parallilos_int32.hpp"
 
 template<typename T>
 void print_info(T* array, size_t n)
@@ -13,8 +15,8 @@ void print_info(T* array, size_t n)
     std::cout << array[k] << ' ';
   std::cout << '\n';
   
-  std::cout << "SIMD instruction set: " << Parallilos::simd_properties<T>::set << '\n';
-  std::cout << "SIMD passes: " << Parallilos::simd_properties<T>::iterations(n) << '\n';
+  std::cout << "Instruction set:   " << Parallilos::simd_properties<T>::set << '\n';
+  std::cout << "Parallel passes:   " << Parallilos::simd_properties<T>::iterations(n) << '\n';
   std::cout << "Sequential passes: " << Parallilos::simd_properties<T>::sequential(n) << '\n';
 }
 
@@ -89,12 +91,13 @@ void custom_implementation()
 
   // aligned memory allocation
   const size_t n = 16;
-  Array<T> a = get_array<T>(n);
-  Array<T> b = get_array<T>(n);
-  Array<T> c = get_array<T>(n);
+  Array<T> a = make_array<T>(n);
+  Array<T> b = make_array<T>(n);
+  Array<T> c = make_array<T>(n);
 
   // initialize arrays
-  for (size_t k = 0; k < n; ++k) {
+  for (size_t k = 0; k < n; ++k)
+  {
     a[k] = k;
     b[k] = k + n;
   }
@@ -103,15 +106,28 @@ void custom_implementation()
   T* a_data = a.get();
   T* b_data = b.get();
   T* c_data = c.get();
+
   const size_t iterations = simd_properties<T>::iterations(n);
   size_t k = 0;
   for (size_t i = 0; i < iterations; ++i, k+=simd_properties<T>::size)
+  {
     simd_storea(c_data+k, simd_add(simd_loada(a_data+k), simd_loada(b_data+k)));
+  }
+
   for (; k < n; ++k)
+  {
     c_data[k] = a_data[k] + b_data[k];
+  }
 
   // display result array
   print_info(c.get(), n);
+}
+
+void foo()
+{
+  using namespace Parallilos;
+
+  simd_add(simd_setval<long double>(1), simd_setval<long double>(2));
 }
 
 int main()
@@ -126,8 +142,8 @@ int main()
   standard_vector<double>();
 
   std::cout << "\nstandard array example:\n";
-  standard_array<float>();
+  standard_array<int>();
 
   std::cout << "\ncustom implementation example:\n";
-  custom_implementation<float>();
+  custom_implementation<int>();
 }
