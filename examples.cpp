@@ -6,7 +6,7 @@
 #define PARALLILOS_WARNINGS
 #include "include/Parallilos.hpp"
 #include "experimental/Parallilos_array.hpp"
-// #include "experimental/Parallilos_int32.hpp"
+#include "ignore/Chronometro.hpp"
 
 template<typename T>
 void print_info(T* array, size_t n)
@@ -23,6 +23,8 @@ void print_info(T* array, size_t n)
 template<typename T>
 void stack_array()
 {
+  std::cout << "\nstack allocated array example:\n";
+
   // stack array
   const size_t n = 20;
   T a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -39,6 +41,8 @@ void stack_array()
 template<typename T>
 void standard_vector()
 {
+  std::cout << "\nvector example:\n";
+
   // dynamic array
   const size_t n = 20;
   std::vector<T> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -56,6 +60,8 @@ void standard_vector()
 template<typename T>
 void heap_array()
 {
+  std::cout << "\nheap allocated array example:\n";
+
   // heap array
   const size_t n = 20;
   std::unique_ptr<T[]> a = std::unique_ptr<T[]>(new T[n]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
@@ -72,6 +78,8 @@ void heap_array()
 template<typename T>
 void standard_array()
 {
+  std::cout << "\nstandard array example:\n";
+
   // standard array
   const size_t n = 20;
   std::array<T, n> a = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -88,6 +96,8 @@ void standard_array()
 template<typename T>
 void custom_implementation()
 {
+  std::cout << "\ncustom implementation example:\n";
+
   using namespace Parallilos;
 
   // aligned memory allocation
@@ -110,13 +120,11 @@ void custom_implementation()
 
   for (const size_t k : SIMD<T>::parallel(n))
   {
-    std::cout << k << ' ';
     simd_storea(c_data+k, simd_add(simd_loada(a_data+k), simd_loada(b_data+k)));
   }
 
   for (const size_t k : SIMD<T>::sequential(n))
   {
-    std::cout << k << ' ';
     c_data[k] = a_data[k] + b_data[k];
   }
 
@@ -126,19 +134,10 @@ void custom_implementation()
 
 int main()
 {
-  std::cout << "\nstack allocated array example:\n";
   stack_array<float>();
-  
-  std::cout << "\nheap allocated array example:\n";
   heap_array<double>();
-
-  std::cout << "\nvector example:\n";
   standard_vector<double>();
-
-  std::cout << "\nstandard array example:\n";
   standard_array<float>();
-
-  std::cout << "\ncustom implementation example:\n";
   custom_implementation<int>();
 
   using namespace Parallilos;
@@ -148,5 +147,13 @@ int main()
   Array<T> b = make_array<T>(n);
   Array<T> c = make_array<T>(n);
 
-  add_arrays(a, b, &c, n);
+  using namespace Chronometro;
+  
+loop:
+  CHRONOMETRO_MEASURE(100000) add_arrays(a, b, &c, n);
+  CHRONOMETRO_MEASURE(100000) add_arrays(a.get(), b.get(), c.get(), n);
+  std::cin.get();
+  goto loop;
+
+  simd_loadu<float>(nullptr);
 }

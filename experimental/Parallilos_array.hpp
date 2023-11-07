@@ -65,9 +65,20 @@ namespace Parallilos
     template<typename T>
     void add_arrays(const T* a, const T* b, T* r, const size_t n)
     {
-      for (const size_t k : SIMD<T>::parallel(n))
+      // parallel processing
+      if (is_aligned(a, b, r))
       {
-        simd_storeu(r+k, simd_add(simd_loadu(a+k), simd_loadu(b+k)));
+        for (const size_t k : SIMD<T>::parallel(n))
+        {
+          simd_storea(r+k, simd_add(simd_loada(a+k), simd_loada(b+k)));
+        }
+      }
+      else
+      {
+        for (const size_t k : SIMD<T>::parallel(n))
+        {
+          simd_storeu(r+k, simd_add(simd_loadu(a+k), simd_loadu(b+k)));
+        }
       }
 
       // sequential fallback
@@ -84,6 +95,7 @@ namespace Parallilos
       const T* b_data = b.get();
       T* r_data = r->get();
 
+      // parallel processing
       for (const size_t k : SIMD<T>::parallel(n))
       {
         simd_storea(r_data+k, simd_add(simd_loada(a_data+k), simd_loada(b_data+k)));
