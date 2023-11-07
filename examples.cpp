@@ -15,9 +15,9 @@ void print_info(T* array, size_t n)
     std::cout << array[k] << ' ';
   std::cout << '\n';
   
-  std::cout << "Instruction set:   " << Parallilos::simd<T>::set << '\n';
-  std::cout << "Parallel passes:   " << Parallilos::simd<T>::passes(n) << '\n';
-  std::cout << "Sequential passes: " << Parallilos::simd<T>::sequential(n) << '\n';
+  std::cout << "Instruction set:   " << Parallilos::SIMD<T>::set << '\n';
+  std::cout << "Parallel passes:   " << Parallilos::SIMD<T>::parallel(n).passes << '\n';
+  std::cout << "Sequential passes: " << Parallilos::SIMD<T>::sequential(n).passes << '\n';
 }
 
 template<typename T>
@@ -50,6 +50,7 @@ void standard_vector()
 
   // display result array
   print_info(c.data(), n);
+  
 }
 
 template<typename T>
@@ -90,7 +91,7 @@ void custom_implementation()
   using namespace Parallilos;
 
   // aligned memory allocation
-  const size_t n = 16;
+  const size_t n = 40;
   Array<T> a = make_array<T>(n);
   Array<T> b = make_array<T>(n);
   Array<T> c = make_array<T>(n);
@@ -107,27 +108,20 @@ void custom_implementation()
   T* b_data = b.get();
   T* c_data = c.get();
 
-  const size_t passes = simd<T>::passes(n);
-  size_t k = 0;
-  for (size_t i = 0; i < passes; ++i, k+=simd<T>::size)
+  for (const size_t k : SIMD<T>::parallel(n))
   {
+    std::cout << k << ' ';
     simd_storea(c_data+k, simd_add(simd_loada(a_data+k), simd_loada(b_data+k)));
   }
 
-  for (; k < n; ++k)
+  for (const size_t k : SIMD<T>::sequential(n))
   {
+    std::cout << k << ' ';
     c_data[k] = a_data[k] + b_data[k];
   }
 
   // display result array
   print_info(c.get(), n);
-}
-
-void foo()
-{
-  using namespace Parallilos;
-
-  simd_add(simd_setval<long double>(1), simd_setval<long double>(2));
 }
 
 int main()
@@ -142,8 +136,17 @@ int main()
   standard_vector<double>();
 
   std::cout << "\nstandard array example:\n";
-  standard_array<int>();
+  standard_array<float>();
 
   std::cout << "\ncustom implementation example:\n";
   custom_implementation<int>();
+
+  using namespace Parallilos;
+  using T = float;
+  const size_t n = 40;
+  Array<T> a = make_array<T>(n);
+  Array<T> b = make_array<T>(n);
+  Array<T> c = make_array<T>(n);
+
+  add_arrays(a, b, &c, n);
 }

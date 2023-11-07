@@ -11,6 +11,8 @@ namespace Parallilos
     // [r] = [a] + [b]
     template<typename T>
     inline void add_arrays(const T* a, const T* b, T* r, const size_t n);
+    template<typename T>
+    inline void add_arrays(const Array<T>& a, const  Array<T>& b,  Array<T>* r, const size_t n);
 
     // [r] = a + [b]
     template<typename T>
@@ -63,23 +65,34 @@ namespace Parallilos
     template<typename T>
     void add_arrays(const T* a, const T* b, T* r, const size_t n)
     {
-      size_t k = 0;
-
-      // parallel addition using SIMD
-      // for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
-      // {
-      //   simd_storea(r+k, simd_add(simd_loada(a+k), simd_loada(b+k)));
-      // }
-
-      for (size_t k : simd<T>(n))
+      for (const size_t k : SIMD<T>::parallel(n))
       {
-        simd_storea(r+k, simd_add(simd_loada(a+k), simd_loada(b+k)));
+        simd_storeu(r+k, simd_add(simd_loadu(a+k), simd_loadu(b+k)));
       }
 
       // sequential fallback
-      for (; k < n; ++k)
+      for (const size_t k : SIMD<T>::sequential(n))
       {
         r[k] = a[k] + b[k];
+      }
+    } 
+
+    template<typename T>
+    void add_arrays(const Array<T>& a, const Array<T>& b, Array<T>* r, const size_t n)
+    {
+      const T* a_data = a.get();
+      const T* b_data = b.get();
+      T* r_data = r->get();
+
+      for (const size_t k : SIMD<T>::parallel(n))
+      {
+        simd_storea(r_data+k, simd_add(simd_loada(a_data+k), simd_loada(b_data+k)));
+      }
+
+      // sequential fallback
+      for (const size_t k : SIMD<T>::sequential(n))
+      {
+        r_data[k] = a_data[k] + b_data[k];
       }
     }
 
@@ -89,12 +102,12 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      const typename simd<T>::type a_vector = simd_setval(a);
-      if (is_aligned(a) && is_aligned(b) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+      const typename SIMD<T>::type a_vector = simd_setval(a);
+      if (is_aligned(a, b, r))
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_add(a_vector, simd_loada(b+k)));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_add(a_vector, simd_loadu(b+k)));
 
       // sequential fallback
@@ -108,12 +121,12 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      const typename simd<T>::type b_vector = simd_setval(b);
-      if (is_aligned(a) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+      const typename SIMD<T>::type b_vector = simd_setval(b);
+      if (is_aligned(a, r))
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_add(simd_loada(a+k), b_vector));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_add(simd_loadu(a+k), b_vector));
 
       // sequential fallback
@@ -127,11 +140,11 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      if (is_aligned(a) && is_aligned(b) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+      if (is_aligned(a, b, r))
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_mul(simd_loada(a+k), simd_loada(b+k)));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_mul(simd_loadu(a+k), simd_loadu(b+k)));
 
       // sequential fallback
@@ -145,12 +158,12 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      const typename simd<T>::type a_vector = simd_setval(a);
-      if (is_aligned(b) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+      const typename SIMD<T>::type a_vector = simd_setval(a);
+      if (is_aligned(b, r))
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_mul(a_vector, simd_loada(b+k)));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_mul(a_vector, simd_loadu(b+k)));
 
       // sequential fallback
@@ -164,12 +177,12 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      const typename simd<T>::type b_vector = simd_setval(b);
-      if (is_aligned(a) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+      const typename SIMD<T>::type b_vector = simd_setval(b);
+      if (is_aligned(a, r))
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_mul(simd_loada(a+k), b_vector));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_mul(simd_loadu(a+k), b_vector));
 
       // sequential fallback
@@ -183,11 +196,11 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      if (is_aligned(a) && is_aligned(b) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+      if (is_aligned(a, b, r))
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_sub(simd_loada(a+k), simd_loada(b+k)));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_sub(simd_loadu(a+k), simd_loadu(b+k)));
 
       // sequential fallback
@@ -201,12 +214,12 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      const typename simd<T>::type a_vector = simd_setval(a);
+      const typename SIMD<T>::type a_vector = simd_setval(a);
       if (is_aligned(b) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_sub(a_vector, simd_loada(b+k)));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_sub(a_vector, simd_loadu(b+k)));
 
       // sequential fallback
@@ -220,12 +233,12 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      const typename simd<T>::type b_vector = simd_setval(b);
+      const typename SIMD<T>::type b_vector = simd_setval(b);
       if (is_aligned(a) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_sub(simd_loada(a+k), b_vector));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_sub(simd_loadu(a+k), b_vector));
 
       // sequential fallback
@@ -240,10 +253,10 @@ namespace Parallilos
 
       // parallel addition using SIMD
       if (is_aligned(a) && is_aligned(b) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_div(simd_loada(a+k), simd_loada(b+k)));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_div(simd_loadu(a+k), simd_loadu(b+k)));
 
       // sequential fallback
@@ -257,12 +270,12 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      const typename simd<T>::type a_vector = simd_setval(a);
+      const typename SIMD<T>::type a_vector = simd_setval(a);
       if (is_aligned(b) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_div(a_vector, simd_loada(b+k)));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_div(a_vector, simd_loadu(b+k)));
 
       // sequential fallback
@@ -280,12 +293,12 @@ namespace Parallilos
       size_t k = 0;
 
       // parallel addition using SIMD
-      const typename simd<T>::type b_vector = simd_setval(b);
+      const typename SIMD<T>::type b_vector = simd_setval(b);
       if (is_aligned(a) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_div(simd_loada(a+k), b_vector));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_div(simd_loadu(a+k), b_vector));
 
       // sequential fallback
@@ -304,10 +317,10 @@ namespace Parallilos
 
       // parallel addition using SIMD
       if (is_aligned(a) && is_aligned(r))
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storea(r+k, simd_sqrt(simd_loada(a+k)));
       else
-        for (size_t passes_left = simd<T>::passes(n); passes_left; --passes_left, k += simd<T>::size)
+        for (size_t passes_left = SIMD<T>::parallel(n).passes; passes_left; --passes_left, k += SIMD<T>::size)
           simd_storeu(r+k, simd_sqrt(simd_loadu(a+k)));
 
       // sequential fallback

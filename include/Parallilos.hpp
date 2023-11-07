@@ -106,10 +106,11 @@ namespace Parallilos
 #endif
 
 // Arithmetic "concept"
-# define PARALLILOS_ARITHMETIC(T) typename T, typename = typename std::is_arithmetic<T>::type
+# define PARALLILOS_IS_ARITHMETIC(T) typename = typename std::is_arithmetic<T>::type
+# define PARALLILOS_ARITHMETIC(T)    typename T, PARALLILOS_IS_ARITHMETIC(T)
 
 // Vector type associated with T
-# define PARALLILOS_VECTOR_OF(T)  typename simd<T>::vector_type
+# define PARALLILOS_VECTOR_OF(T)     typename SIMD<T>::vector_type
 
   // logging utilities
 #if defined(PARALLILOS_WARNINGS)
@@ -167,45 +168,91 @@ namespace Parallilos
     inline void free_array(T* addr);
 
     // check if an address is aligned for SIMD
-    template<PARALLILOS_ARITHMETIC(T)>
-    inline bool is_aligned(const T* addr);
+    template<typename T, typename... Tn>
+    inline bool is_aligned(const T* addr, const Tn*... addrn);
+    inline bool is_aligned();
+
+    template<typename T, size_t VectorSize, PARALLILOS_IS_ARITHMETIC(T)>
+    class simd_base
+    {
+    public:
+      simd_base() = delete;
+      static constexpr size_t size = VectorSize / sizeof(T);
+    private:
+      class Parallel
+      {
+      public:
+        inline explicit Parallel(const size_t n_elements) noexcept :
+          current_index{0},
+          passes_left{size ? (n_elements / size) : 0},
+          passes{passes_left}
+        {}
+        inline size_t operator*() noexcept               {return current_index;}
+        inline void operator++() noexcept                {--passes_left, current_index += size;}
+        inline bool operator!=(const Parallel&) noexcept {return passes_left;}
+        inline Parallel& begin() noexcept                {return *this;}
+        inline Parallel end() noexcept                   {return Parallel{0};}
+      private:
+        size_t current_index;
+        size_t passes_left;
+      public:
+        const size_t passes;
+      };
+
+      class Sequential
+      {
+      public:
+        inline explicit Sequential(const size_t n_elements) noexcept :
+          current_index{size ? ((n_elements / size) * size) : 0},
+          passes_left{n_elements - current_index},
+          passes{passes_left}
+        {}
+        inline size_t operator*() noexcept                 {return current_index;}
+        inline void operator++() noexcept                  {--passes_left, ++current_index;}
+        inline bool operator!=(const Sequential&) noexcept {return passes_left;}
+        inline Sequential& begin() noexcept                {return *this;}
+        inline Sequential end() noexcept                   {return Sequential{0};}
+      private:
+        size_t current_index;
+        size_t passes_left;
+      public:
+        const size_t passes;
+      };
+    public:
+      static inline Parallel parallel(const size_t n_elements)
+      {
+        return Parallel(n_elements);
+      }
+      
+      static inline Sequential sequential(const size_t n_elements)
+      {
+        return Sequential(n_elements);
+      }
+    };
 
     // unsupported type fallback
     template<PARALLILOS_ARITHMETIC(T)>
-    struct simd
+    struct SIMD : public simd_base<T, 0>
     {
       using vector_type = T;
-      static constexpr const char* set  = "no SIMD instruction set used for this type";
+      static constexpr const char* const set = "no SIMD instruction set used for this type";
       static constexpr size_t alignment = 0;
-      static constexpr size_t size      = 1;
-
-      static constexpr size_t inline passes(const size_t)
-      {
-        return 0;
-      }
-
-      static constexpr size_t inline sequential(const size_t n_elements)
-      {
-        return n_elements;
-      }
-
-      simd(const size_t n_elements) noexcept :
-        passes_left(passes(n_elements))
-      {}
-      inline size_t operator*() noexcept {return current_index;}
-      inline void operator++() noexcept {--passes_left, current_index += size;}
-      inline bool operator!=(const simd&) noexcept {return passes_left;}
-      inline simd& begin() noexcept {return *this;}
-      inline simd end() noexcept {return simd{0};}
-      private:
-        size_t       passes_left;
-        size_t       current_index = 0;
     };
     
     // treat const T as T
     template <typename T>
-    struct simd<const T> : simd<T>
+    struct SIMD<const T> : SIMD<T>
     {};
+ 
+    // T = type, V = vector type, A = vector alignment, S = instruction set
+    #define PARALLILOS_MAKE_SIMD(T, V, A, S)          \
+      template <>                                     \
+      struct SIMD<T> : public simd_base<T, sizeof(V)> \
+      {                                               \
+        using vector_type = V;                        \
+        static constexpr const char* const set = S;   \
+        static constexpr size_t alignment = A;        \
+      }
 
     // load a vector from unaligned data
     template<PARALLILOS_ARITHMETIC(T)>
@@ -548,35 +595,13 @@ namespace Parallilos
 # endif
 
 # ifdef PARALLILOS_TYPE_F32
+    //PARALLILOS_MAKE_SIMD(float, PARALLILOS_TYPE_F32, PARALLILOS_SET_F32, PARALLILOS_ALIGNMENT_F32);
     template <>
-    struct simd<float>
+    struct SIMD<float> : public simd_base<float, sizeof(PARALLILOS_TYPE_F32)>
     {
       using vector_type = PARALLILOS_TYPE_F32;
-      static constexpr const char* set  = PARALLILOS_SET_F32;
+      static constexpr const char* const set = PARALLILOS_SET_F32;
       static constexpr size_t alignment = PARALLILOS_ALIGNMENT_F32;
-      static constexpr size_t size      = sizeof(vector_type) / sizeof(float);
-
-      static constexpr size_t inline passes(const size_t n_elements)
-      {
-        return n_elements / size;
-      }
-      
-      static constexpr size_t inline sequential(const size_t n_elements)
-      {
-        return n_elements - passes(n_elements)*size;
-      }
-
-      simd(const size_t n_elements) noexcept :
-        passes_left(passes(n_elements))
-      {}
-      inline size_t operator*() noexcept {return current_index;}
-      inline void operator++() noexcept {--passes_left, current_index += size;}
-      inline bool operator!=(const simd&) noexcept {return passes_left;}
-      inline simd& begin() noexcept {return *this;}
-      inline simd end() noexcept {return simd{0};}
-      private:
-        size_t       passes_left;
-        size_t       current_index = 0;
     };
 
     template<>
@@ -748,35 +773,12 @@ namespace Parallilos
 
     // define a standard API to use SIMD intrinsics
 # ifdef PARALLILOS_TYPE_F64
-    template<>
-    struct simd<double>
+    template <>
+    struct SIMD<double> : public simd_base<double, sizeof(PARALLILOS_TYPE_F64)>
     {
       using vector_type = PARALLILOS_TYPE_F64;
-      static constexpr const char* set  = PARALLILOS_SET_F64;
+      static constexpr const char* const set = PARALLILOS_SET_F64;
       static constexpr size_t alignment = PARALLILOS_ALIGNMENT_F64;
-      static constexpr size_t size      = sizeof(vector_type) / sizeof(float);
-
-      static constexpr size_t inline passes(const size_t n_elements)
-      {
-        return n_elements / size;
-      }
-
-      static constexpr size_t inline sequential(const size_t n_elements)
-      {
-        return n_elements - passes(n_elements)*size;
-      }
-
-      simd(const size_t n_elements) noexcept :
-        passes_left(passes(n_elements))
-      {}
-      inline size_t operator*() noexcept {return current_index;}
-      inline void operator++() noexcept {--passes_left, current_index += size;}
-      inline bool operator!=(const simd&) noexcept {return passes_left;}
-      inline simd& begin() noexcept {return *this;}
-      inline simd end() noexcept {return simd{0};}
-      private:
-        size_t       passes_left;
-        size_t       current_index = 0;
     };
 
     template<>
@@ -877,7 +879,7 @@ namespace Parallilos
       }
 
       // alignment requirement for simd
-      constexpr size_t alignment = simd<T>::alignment;
+      constexpr size_t alignment = SIMD<T>::alignment;
 
       // nothing special needed
       if (alignment == 0)
@@ -914,7 +916,7 @@ namespace Parallilos
     void free_array(T* addr)
     {
 #   if __cplusplus < 201703L
-      if (simd<T>::alignment && addr)
+      if (SIMD<T>::alignment && addr)
       {
         std::free(reinterpret_cast<void**>(addr)[-1]);
         return;
@@ -924,13 +926,25 @@ namespace Parallilos
       std::free(addr);
     }
 
-    template<PARALLILOS_ARITHMETIC(T)>
-    bool is_aligned(const T* addr)
+    template<typename T, typename... Tn>
+    inline bool is_aligned(const T* addr, const Tn*... addrn)
     {
-      return (uintptr_t(addr) & (simd<T>::alignment - 1)) == 0;
+      return ((uintptr_t(addr) & (SIMD<T>::alignment - 1)) == 0)  && is_aligned(addrn...);
     }
 
+    inline bool is_aligned()
+    {
+      return true;
+    }
+
+    // template<PARALLILOS_ARITHMETIC(T)>
+    // bool is_aligned(const T* addr)
+    // {
+    //   return (uintptr_t(addr) & (SIMD<T>::alignment - 1)) == 0;
+    // }
+
 # undef PARALLILOS_TYPE_WARNING
+# undef PARALLILOS_IS_ARITHMETIC
 # undef PARALLILOS_ARITHMETIC
 # undef PARALLILOS_VECTOR_OF
 
