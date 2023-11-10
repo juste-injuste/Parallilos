@@ -211,7 +211,7 @@ facilitate generic parallelism.
 #   define PARALLILOS_PARALLELISM
 #   ifdef __ARM_ARCH_64
 #     define PARALLILOS_NEON64
-#     include <arm64_neon.h
+#     include <arm64_neon.h>
 #   else
 #     define PARALLILOS_NEON
 #     include <arm_neon.h>
@@ -286,7 +286,7 @@ namespace Parallilos
 
   namespace Backend
   {
-    template<typename T, size_t VS, size_t A, typename = typename std::enable_if<std::is_arithmetic<T>::value>::Type>
+    template<typename T, size_t VS, size_t A, typename = typename std::enable_if<std::is_arithmetic<T>::value>::type>
     class Base
     {
     public:
@@ -547,38 +547,41 @@ namespace Parallilos
     return a - b * c;
   }
 
-  template <typename T, typename V = T, typename M = bool>
-  PARALLILOS_INLINE auto simd_eq(V a, V b) -> M
+  template<typename V>
+  using Mask = typename SIMD<typename std::remove_reference<decltype(std::declval<V>()[0])>::type>::Mask;
+
+  template <typename V>
+  PARALLILOS_INLINE auto simd_eq(V a, V b) -> Mask<V>
   {
     return a == b;
   }
 
-  template <typename V, typename M = bool>
-  PARALLILOS_INLINE auto simd_neq(V a, V b) -> M
+  template <typename V>
+  PARALLILOS_INLINE auto simd_neq(V a, V b) -> Mask<V>
   {
     return a != b;
   }
 
-  template <typename V, typename M = bool>
-  PARALLILOS_INLINE auto simd_gt(V a, V b) -> M
+  template <typename V>
+  PARALLILOS_INLINE auto simd_gt(V a, V b) -> Mask<V>
   {
     return a > b;
   }
 
-  template <typename V, typename M = bool>
-  PARALLILOS_INLINE auto simd_gte(V a, V b) -> M
+  template <typename T, typename V>
+  PARALLILOS_INLINE auto simd_gte(V a, V b) -> Mask<V>
   {
     return a >= b;
   }
 
-  template <typename V, typename M = bool>
-  PARALLILOS_INLINE auto simd_lt(V a, V b) -> M
+  template <typename V>
+  PARALLILOS_INLINE auto simd_lt(V a, V b) -> Mask<V>
   {
     return a < b;
   }
 
-  template <typename V, typename M = bool>
-  PARALLILOS_INLINE auto simd_lte(V a, V b) -> M
+  template <typename V>
+  PARALLILOS_INLINE auto simd_lte(V a, V b) -> Mask<V>
   {
     return a <= b;
   }
@@ -791,7 +794,7 @@ namespace Parallilos
   }
 
   template <>
-  PARALLILOS_INLINE auto simd_eq<float>(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
+  PARALLILOS_INLINE auto simd_eq<SIMD<float>::Type>(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
   {
     return PARALLILOS_F32_EQ(a, b);
 # undef PARALLILOS_F32_EQ

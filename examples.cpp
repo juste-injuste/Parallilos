@@ -48,5 +48,11 @@ int main()
   // display result array
   print_info(c.get(), n);
 
-  SIMD<float>::mask t = simd_eq<float>(SIMD<float>::type{}, SIMD<float>::type{});
+  // simd_eq(SIMD<long long>::Type{}, SIMD<long long>::Type{});
+
+
+  using T = typename SIMD<long long>::Type;
+  using M = Mask<T>;
+
+  M m;
 }
