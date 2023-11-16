@@ -3,10 +3,10 @@
 #include <vector>
 #include <array>
 #include <memory>
+
 #define PARALLILOS_WARNINGS
-#define __AVX512F__
 #include "include/Parallilos.hpp"
-#include "ignore/Chronometro.hpp"
+// #include "ignore/Chronometro.hpp"
 
 template<typename T>
 void print_info(T* array, size_t n)
@@ -17,9 +17,10 @@ void print_info(T* array, size_t n)
     std::cout << array[k] << ' ';
   std::cout << '\n';
   
-  std::cout << "Instruction set:   " << SIMD<T>::set << '\n';
-  std::cout << "Parallel passes:   " << SIMD<T>::parallel(n).passes << '\n';
-  std::cout << "Sequential passes: " << SIMD<T>::sequential(n).passes << '\n';
+  std::cout << "Instruction set:          " << SIMD<T>::set  << '\n';
+  std::cout << "Data per parallel passes: " << SIMD<T>::size << '\n';
+  std::cout << "Parallel passes:          " << SIMD<T>::parallel(n).passes   << '\n';
+  std::cout << "Sequential passes:        " << SIMD<T>::sequential(n).passes << '\n';
 }
 
 int main()
@@ -36,7 +37,8 @@ int main()
   // parallel processing
   for (const size_t k : SIMD<type>::parallel(n))
   {
-    simd_storea(c.get()+k, simd_mul(simd_loada(a.get()+k), simd_loada(b.get()+k)));
+    simd_storea(c.get()+k, simd_mul(SIMD<type>::as_vector(a, k), SIMD<type>::as_vector(b, k)));
+    // simd_storea(c.get()+k, simd_mul(simd_loada(a.get()+k), simd_loada(b.get()+k)));
   }
 
   // sequential fallback
@@ -48,11 +50,5 @@ int main()
   // display result array
   print_info(c.get(), n);
 
-  // simd_eq(SIMD<long long>::Type{}, SIMD<long long>::Type{});
-
-
-  using T = typename SIMD<long long>::Type;
-  using M = Mask<T>;
-
-  M m;
+  // SIMD<float>::Array arr_a = SIMD<float>::make_array({1, 2, 3, 4, 5});
 }

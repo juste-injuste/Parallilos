@@ -37,13 +37,13 @@ facilitate generic parallelism.
 #ifndef PARALLILOS_HPP
 #define PARALLILOS_HPP
 // --necessary standard libraries-------------------------------------------------------------------
-#include <cstddef>  // for size_t
-#include <cmath>    // for std::sqrt
-#include <cstdlib>  // for std::malloc, std::free
-#include <limits>   // for std::numeric_limits
-#include <memory>   // for std::unique_ptr
-#include <ostream>  // for std::ostream
-#include <iostream> // for std::cerr
+#include <cstddef>      // for size_t
+#include <cmath>        // for std::sqrt
+#include <cstdlib>      // for std::malloc, std::free
+#include <limits>       // for std::numeric_limits
+#include <memory>       // for std::unique_ptr
+#include <ostream>      // for std::ostream
+#include <iostream>     // for std::cerr
 # include <type_traits> // for std::is_arithmetic
 #if defined(PARALLILOS_WARNINGS)
 # include <string>      // for std::string, std::to_string
@@ -56,11 +56,17 @@ facilitate generic parallelism.
 # define PARALLILOS_COMPILER_SUPPORTS_AVX
 # define PARALLILOS_COMPILER_SUPPORTS_NEON
 # define PARALLILOS_INLINE __attribute__((always_inline)) inline
+# if (__cplusplus < 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
+#   define PARALLILOS_HAS_ALIGNED_ALLOC
+# endif
 #elif defined(__clang__)
 # define PARALLILOS_COMPILER_SUPPORTS_SSE
 # define PARALLILOS_COMPILER_SUPPORTS_AVX
 # define PARALLILOS_COMPILER_SUPPORTS_NEON
 # define PARALLILOS_INLINE __attribute__((always_inline)) inline
+# if (__cplusplus < 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
+#   define PARALLILOS_HAS_ALIGNED_ALLOC
+# endif
 #elif defined(__MINGW32__) || defined(__MINGW64__)
 # define PARALLILOS_COMPILER_SUPPORTS_SSE
 # define PARALLILOS_COMPILER_SUPPORTS_AVX
@@ -233,6 +239,9 @@ facilitate generic parallelism.
 
 namespace Parallilos
 {
+  template<typename T>
+  class SIMD;
+
   namespace Version
   {
     constexpr long NUMBER = 000001000;
@@ -246,9 +255,9 @@ namespace Parallilos
     std::ostream wrn{std::cerr.rdbuf()};
   }
 
-# if defined(PARALLILOS_WARNINGS)
-  namespace Logging
+  namespace Backend
   {
+# if defined(PARALLILOS_WARNINGS)
     template<typename T>
     inline std::string type_name()
     {
@@ -276,41 +285,72 @@ namespace Parallilos
     {
       return type_name<T>() + ", " + get_type_name<Tn...>();
     }
-  }
 #   define PARALLILOS_TYPE_WARNING(...)                                        \
       Global::wrn << "warning: Parallilos: " << __func__ << '(' <<             \
-      Logging::get_type_name<__VA_ARGS__>() << "): SIMD not used" << std::endl
+      Backend::get_type_name<__VA_ARGS__>() << "): SIMD not used" << std::endl
 # else
 #   define PARALLILOS_TYPE_WARNING(...) /* to enable warnings #define PARALLILOS_WARNINGS */
 # endif
 
-  namespace Backend
-  {
+    template<size_t size>
+    class Parallel
+    {
+    public:
+      inline explicit Parallel(const size_t n_elements) noexcept :
+        current_index{0},
+        passes_left{size ? (n_elements / size) : 0}
+      {}
+      inline size_t operator*() noexcept               {return current_index;}
+      inline void operator++() noexcept                {--passes_left, current_index += size;}
+      inline bool operator!=(const Parallel&) noexcept {return passes_left;}
+      inline Parallel& begin() noexcept                {return *this;}
+      inline Parallel end() noexcept                   {return Parallel{0};}
+    private:
+      size_t current_index;
+      size_t passes_left;
+    public:
+      const size_t passes = passes_left;
+    };
+
+    template<size_t size>
+    class Sequential
+    {
+    public:
+      inline explicit Sequential(const size_t n_elements) noexcept :
+        current_index{size ? ((n_elements / size) * size) : 0},
+        passes_left{n_elements - current_index}
+      {}
+      inline size_t operator*() noexcept                 {return current_index;}
+      inline void operator++() noexcept                  {--passes_left, ++current_index;}
+      inline bool operator!=(const Sequential&) noexcept {return passes_left;}
+      inline Sequential& begin() noexcept                {return *this;}
+      inline Sequential end() noexcept                   {return Sequential{0};}
+    private:
+      size_t current_index;
+      size_t passes_left;
+    public:
+      const size_t passes = passes_left;
+    };
+
     template<typename T, size_t VS, size_t A, typename = typename std::enable_if<std::is_arithmetic<T>::value>::type>
     class Base
     {
+    private:
+      struct Deleter; // deleter for SIMD aligned memory
     public:
-      static constexpr size_t size = VS / sizeof(T);
+      using Array = std::unique_ptr<T[], Deleter>;
+      static constexpr size_t size      = VS / sizeof(T);
       static constexpr size_t alignment = A;
 
-      // deleter for SIMD aligned memory
-      struct Deleter 
+      static inline Parallel<size> parallel(const size_t n_elements) noexcept
       {
-        void operator()(T* addr)
-        {
-#       if __cplusplus < 201703L
-        if (alignment && addr)
-        {
-          std::free(reinterpret_cast<void**>(addr)[-1]);
-          return;
-        }
-#       endif
-
-        std::free(addr);
-        }
-      };
-
-      using Array = std::unique_ptr<T[], Deleter>;
+        return Parallel<size>{n_elements};
+      }
+      
+      static inline Sequential<size> sequential(const size_t n_elements) noexcept
+      {
+        return Sequential<size>{n_elements};
+      }
 
       // SIMD aligned memory allocation
       static inline Array make_array(const size_t number_of_elements)
@@ -326,7 +366,7 @@ namespace Parallilos
         {
           return Array(reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T))));
         }
-#     if __cplusplus >= 201703L
+#     if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
         else
         {
           return Array(reinterpret_cast<T*>(std::aligned_alloc(alignment, number_of_elements * sizeof(T))));
@@ -364,84 +404,65 @@ namespace Parallilos
 
         return array;
       }
-    private:
-      class Parallel
+    private: 
+      struct Deleter // deleter for SIMD aligned memory
       {
-      public:
-        inline explicit Parallel(const size_t n_elements) noexcept :
-          current_index{0},
-          passes_left{size ? (n_elements / size) : 0},
-          passes{passes_left}
-        {}
-        inline size_t operator*() noexcept               {return current_index;}
-        inline void operator++() noexcept                {--passes_left, current_index += size;}
-        inline bool operator!=(const Parallel&) noexcept {return passes_left;}
-        inline Parallel& begin() noexcept                {return *this;}
-        inline Parallel end() noexcept                   {return Parallel{0};}
-      private:
-        size_t current_index;
-        size_t passes_left;
-      public:
-        const size_t passes;
-      };
+        inline void operator()(T* addr)
+        {
+#       if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
+          if (alignment && addr)
+          {
+            std::free(reinterpret_cast<void**>(addr)[-1]);
+            return;
+          }
+#       endif
 
-      class Sequential
-      {
-      public:
-        inline explicit Sequential(const size_t n_elements) noexcept :
-          current_index{size ? ((n_elements / size) * size) : 0},
-          passes_left{n_elements - current_index},
-          passes{passes_left}
-        {}
-        inline size_t operator*() noexcept                 {return current_index;}
-        inline void operator++() noexcept                  {--passes_left, ++current_index;}
-        inline bool operator!=(const Sequential&) noexcept {return passes_left;}
-        inline Sequential& begin() noexcept                {return *this;}
-        inline Sequential end() noexcept                   {return Sequential{0};}
-      private:
-        size_t current_index;
-        size_t passes_left;
-      public:
-        const size_t passes;
+          std::free(addr);
+        }
       };
-    public:
-      static inline Parallel parallel(const size_t n_elements) noexcept
-      {
-        return Parallel{n_elements};
-      }
-      
-      static inline Sequential sequential(const size_t n_elements) noexcept
-      {
-        return Sequential{n_elements};
-      }
     };
   }
   
+  // not too sure about the portability of this. might have to rethink it.
+  template<typename V>
+  struct MaskOf
+  {
+    using Type = bool;
+  };
+  // template<typename V>
+  // using MaskOf = typename SIMD<typename std::remove_reference<decltype(std::declval<V>()[0])>::type>::Mask;
+
   template<typename T>
   struct SIMD : public Backend::Base<T, 0, 0>
   {
     using Type = T;
     using Mask = bool;
     static constexpr const char* const set = "no SIMD instruction set used for this type";
+    static PARALLILOS_INLINE Type& as_vector(typename Backend::Base<T, 0, 0>::Array& data, const size_t k) noexcept
+    {
+      PARALLILOS_TYPE_WARNING(T);
+      return (Type&)(data.get()[k]);
+    }
   };
 
-  // T = type, V = vector type, M = mask type A = alignment, S = sets used
-  #define PARALLILOS_MAKE_SIMD(T, V, M, A, S)              \
-    template <>                                            \
-    struct SIMD<T> : public Backend::Base<T, sizeof(V), A> \
-    {                                                      \
-      using Type = V;                                      \
-      using Mask = M;                                      \
-      static constexpr const char* const set = S;          \
+  // T = type, V = vector type, M = mask type, A = alignment, S = sets used
+  #define PARALLILOS_MAKE_SIMD(T, V, M, A, S)                             \
+    template <>                                                           \
+    struct SIMD<T> : public Backend::Base<T, sizeof(V), A>                \
+    {                                                                     \
+      using Type = V;                                                     \
+      using Mask = M;                                                     \
+      static constexpr const char* const set = S;                         \
+      static inline Type& as_vector(Array& data, const size_t k) noexcept \
+      {                                                                   \
+        return (Type&)(data.get()[k]);                                    \
+      }                                                                   \
+    };         \
+    template<>\
+    struct MaskOf<V>\
+    {\
+      using Type = M;\
     }
-
-  // check if an address is aligned for SIMD
-  inline bool is_aligned() { return true; } // base case for recursion
-  template<typename T, typename... Tn>
-  inline bool is_aligned(const T addr[], const Tn*... addrn)
-  {
-    return ((uintptr_t(addr) & (SIMD<T>::alignment - 1)) == 0)  && is_aligned(addrn...);
-  }
 
   // load a vector from unaligned data
   template<typename T>
@@ -547,41 +568,38 @@ namespace Parallilos
     return a - b * c;
   }
 
-  template<typename V>
-  using Mask = typename SIMD<typename std::remove_reference<decltype(std::declval<V>()[0])>::type>::Mask;
-
   template <typename V>
-  PARALLILOS_INLINE auto simd_eq(V a, V b) -> Mask<V>
+  PARALLILOS_INLINE auto simd_eq(V a, V b) -> typename MaskOf<V>::Type
   {
     return a == b;
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_neq(V a, V b) -> Mask<V>
+  PARALLILOS_INLINE auto simd_neq(V a, V b) -> typename MaskOf<V>::Type
   {
     return a != b;
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_gt(V a, V b) -> Mask<V>
+  PARALLILOS_INLINE auto simd_gt(V a, V b) -> typename MaskOf<V>::Type
   {
     return a > b;
   }
 
   template <typename T, typename V>
-  PARALLILOS_INLINE auto simd_gte(V a, V b) -> Mask<V>
+  PARALLILOS_INLINE auto simd_gte(V a, V b) -> typename MaskOf<V>::Type
   {
     return a >= b;
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_lt(V a, V b) -> Mask<V>
+  PARALLILOS_INLINE auto simd_lt(V a, V b) -> typename MaskOf<V>::Type
   {
     return a < b;
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_lte(V a, V b) -> Mask<V>
+  PARALLILOS_INLINE auto simd_lte(V a, V b) -> typename MaskOf<V>::Type
   {
     return a <= b;
   }
