@@ -96,133 +96,67 @@ facilitate generic parallelism.
 #if defined(PARALLILOS_COMPILER_SUPPORTS_AVX)
 # undef PARALLILOS_COMPILER_SUPPORTS_AVX
 # if defined(__AVX512F__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_AVX512F
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 # if defined(__AVX2__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_AVX2
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 # if defined(__FMA__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_FMA
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 # if defined(__AVX__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_AVX
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 #endif
 
 #if defined(PARALLILOS_COMPILER_SUPPORTS_SSE)
 # undef PARALLILOS_COMPILER_SUPPORTS_SSE
 # if defined(__SSE4_2__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_SSE4_2
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 # if defined(__SSE4_1__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_SSE4_1
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 # if defined(__SSSE3__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_SSSE3
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 # if defined(__SSE3__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_SSE3
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 # if defined(__SSE2__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_SSE2
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 # if defined(__SSE__)
-#   define PARALLILOS_PARALLELISM
 #   define PARALLILOS_SSE
-#   if not defined(__OPTIMIZE__)
-#     define __OPTIMIZE__
-#     include <immintrin.h>
-#     undef  __OPTIMIZE__
-#   else
-#     include <immintrin.h>
-#   endif
+#   define PARALLILOS_SIMD_HEADER <immintrin.h>
 # endif
 #endif
 
 #if defined(PARALLILOS_COMPILER_SUPPORTS_NEON)
 # undef PARALLILOS_COMPILER_SUPPORTS_NEON
-# if defined(__ARM_NEON) || defined(__ARM_NEON__)
-#   define PARALLILOS_PARALLELISM
-#   ifdef __ARM_ARCH_64
+# if defined(__ARM_NEON) or defined(__ARM_NEON__)
+#   if defined(__ARM_ARCH_64)
 #     define PARALLILOS_NEON64
-#     include <arm64_neon.h>
+#     define PARALLILOS_SIMD_HEADER <arm64_neon.h>
 #   else
 #     define PARALLILOS_NEON
-#     include <arm_neon.h>
+#     define PARALLILOS_SIMD_HEADER <arm_neon.h>
 #   endif
 # endif
+#endif
+
+#if defined(PARALLILOS_SIMD_HEADER)
+# define __OPTIMIZE__
+# include PARALLILOS_SIMD_HEADER
 #endif
 
 #if defined(PARALLILOS_COMPILER_SUPPORTS_SVML)
@@ -230,12 +164,6 @@ facilitate generic parallelism.
 # define PARALLILOS_SVML
 #endif
 
-#if not defined(PARALLILOS_PARALLELISM)
-# define PARALLILOS_SEQUENTIAL
-# if __cplusplus >= 202302L
-#   warning "warning: Parallilos: no SIMD instruction set used, sequential fallback used."
-# endif
-#endif
 
 namespace Parallilos
 {
@@ -331,96 +259,6 @@ namespace Parallilos
     public:
       const size_t passes = passes_left;
     };
-
-    template<typename T, size_t VS, size_t A, typename = typename std::enable_if<std::is_arithmetic<T>::value>::type>
-    class Base
-    {
-    private:
-      struct Deleter; // deleter for SIMD aligned memory
-    public:
-      using Array = std::unique_ptr<T[], Deleter>;
-      static constexpr size_t size      = VS / sizeof(T);
-      static constexpr size_t alignment = A;
-
-      static inline Parallel<size> parallel(const size_t n_elements) noexcept
-      {
-        return Parallel<size>{n_elements};
-      }
-      
-      static inline Sequential<size> sequential(const size_t n_elements) noexcept
-      {
-        return Sequential<size>{n_elements};
-      }
-
-      // SIMD aligned memory allocation
-      static inline Array make_array(const size_t number_of_elements)
-      {
-        // early return
-        if (number_of_elements == 0)
-        {
-          return Array(nullptr);
-        }
-
-        // nothing special needed
-        if (alignment == 0)
-        {
-          return Array(reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T))));
-        }
-#     if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
-        else
-        {
-          return Array(reinterpret_cast<T*>(std::aligned_alloc(alignment, number_of_elements * sizeof(T))));
-        }
-#     else
-
-        // allocate
-        void* memory_block = std::malloc(number_of_elements * sizeof(T) + alignment);
-        
-        // allocation failure
-        if (memory_block == nullptr)
-        {
-          return Array(nullptr);
-        }
-
-        // align on alignement boundary
-        void* aligned_memory_block = reinterpret_cast<void*>((uintptr_t(memory_block) + alignment) & ~(alignment - 1));
-
-        // bookkeeping of original memory block
-        reinterpret_cast<void**>(aligned_memory_block)[-1] = memory_block;
-
-        return Array(reinterpret_cast<T*>(aligned_memory_block));
-#     endif
-      }
-
-      static inline Array make_array(const std::initializer_list<T> initializer_list)
-      {
-        Array array = make_array(initializer_list.size());
-
-        size_t k = 0;
-        for (auto value : initializer_list)
-        {
-          array[k++] = value;
-        }
-
-        return array;
-      }
-    private: 
-      struct Deleter // deleter for SIMD aligned memory
-      {
-        inline void operator()(T* addr)
-        {
-#       if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
-          if (alignment && addr)
-          {
-            std::free(reinterpret_cast<void**>(addr)[-1]);
-            return;
-          }
-#       endif
-
-          std::free(addr);
-        }
-      };
-    };
   }
   
   // not too sure about the portability of this. might have to rethink it.
@@ -432,36 +270,157 @@ namespace Parallilos
   // template<typename V>
   // using MaskOf = typename SIMD<typename std::remove_reference<decltype(std::declval<V>()[0])>::type>::Mask;
 
+
   template<typename T>
-  struct SIMD : public Backend::Base<T, 0, 0>
+  class Array final
   {
+  static_assert(std::is_arithmetic<T>::value, "T in Array<T> must be an arithmetic type");
+  public:
+    inline const T* data(const size_t k = 0) const noexcept
+    {
+      return array + k;
+    }
+
+    inline T* data(const size_t k = 0) noexcept
+    {
+      return array + k;
+    }
+
+    inline size_t size() const noexcept
+    {
+      return numel;
+    }
+
+    inline T operator [](const size_t k) const noexcept
+    {
+      return array[k];
+    }
+
+    inline T& operator [](const size_t k) noexcept
+    {
+      return array[k];
+    }
+
+    inline typename SIMD<T>::Type& as_vector(const size_t k) noexcept
+    {
+      return (typename SIMD<T>::Type&)(array[k]);
+    }   
+
+    inline operator T*() noexcept
+    {
+      return array;
+    }
+
+    inline Array(const size_t number_of_elements) noexcept
+    {
+      constexpr size_t alignment = SIMD<T>::alignment;
+      // early return
+      if ((number_of_elements == 0) || (alignment == 0))
+      {
+        return;
+      }
+#   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
+      else
+      {
+        array = reinterpret_cast<T*>(std::aligned_alloc(alignment, number_of_elements * sizeof(T)));
+        return;
+      }
+#   else
+
+      // allocate
+      void* memory_block = std::malloc(number_of_elements * sizeof(T) + alignment);
+      
+      // allocation failure
+      if (memory_block == nullptr)
+      {
+        return;
+      }
+
+      // align on alignement boundary
+      void* aligned_memory_block = reinterpret_cast<void*>((uintptr_t(memory_block) + alignment) & ~(alignment - 1));
+
+      // bookkeeping of original memory block
+      reinterpret_cast<void**>(aligned_memory_block)[-1] = memory_block;
+      
+      numel = number_of_elements;
+      array = reinterpret_cast<T*>(aligned_memory_block);
+#   endif
+    }
+
+    inline Array(const std::initializer_list<T> initializer_list) :
+      Array(initializer_list.size())
+    {
+      if (array != nullptr)
+      {
+        size_t k = 0;
+        for (T value : initializer_list)
+        {
+          array[k++] = value;
+        }
+      }
+    }
+
+    inline ~Array() noexcept
+    {
+#   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
+      if (alignment && array)
+      {
+        std::free(reinterpret_cast<void**>(array)[-1]);
+        return;
+      }
+#   endif
+      std::free(array);
+    }
+  private:
+    T* array     = nullptr;
+    size_t numel = 0;
+  };
+
+  template<typename T>
+  struct SIMD
+  {
+  static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type");
+    static constexpr size_t size      = 0;
+    static constexpr size_t alignment = 0;
     using Type = T;
     using Mask = bool;
-    static constexpr const char* const set = "no SIMD instruction set used for this type";
-    static PARALLILOS_INLINE Type& as_vector(typename Backend::Base<T, 0, 0>::Array& data, const size_t k) noexcept
+    static constexpr const char* set = "no SIMD instruction set used for this type";
+
+    static inline Backend::Parallel<size> parallel(const size_t n_elements) noexcept
     {
-      PARALLILOS_TYPE_WARNING(T);
-      return (Type&)(data.get()[k]);
+      return Backend::Parallel<size>{n_elements};
+    }
+    
+    static inline Backend::Sequential<size> sequential(const size_t n_elements) noexcept
+    {
+      return Backend::Sequential<size>{n_elements};
     }
   };
 
   // T = type, V = vector type, M = mask type, A = alignment, S = sets used
-  #define PARALLILOS_MAKE_SIMD(T, V, M, A, S)                             \
-    template <>                                                           \
-    struct SIMD<T> : public Backend::Base<T, sizeof(V), A>                \
-    {                                                                     \
-      using Type = V;                                                     \
-      using Mask = M;                                                     \
-      static constexpr const char* const set = S;                         \
-      static inline Type& as_vector(Array& data, const size_t k) noexcept \
-      {                                                                   \
-        return (Type&)(data.get()[k]);                                    \
-      }                                                                   \
-    };         \
-    template<>\
-    struct MaskOf<V>\
-    {\
-      using Type = M;\
+  #define PARALLILOS_MAKE_SIMD(T, V, M, A, S)                                               \
+    template <>                                                                             \
+    struct SIMD<T>                                                                          \
+    {                                                                                       \
+    static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type"); \
+      static constexpr size_t size      = sizeof(V)/sizeof(T);                              \
+      static constexpr size_t alignment = A;                                                \
+      using Type = V;                                                                       \
+      using Mask = M;                                                                       \
+      static constexpr const char* set = S;                                                 \
+      static inline Backend::Parallel<size> parallel(const size_t n_elements) noexcept      \
+      {                                                                                     \
+        return Backend::Parallel<size>{n_elements};                                         \
+      }                                                                                     \
+      static inline Backend::Sequential<size> sequential(const size_t n_elements) noexcept  \
+      {                                                                                     \
+        return Backend::Sequential<size>{n_elements};                                       \
+      }                                                                                     \
+    };                                                                                      \
+    template<>                                                                              \
+    struct MaskOf<V>                                                                        \
+    {                                                                                       \
+      using Type = M;                                                                       \
     }
 
   // load a vector from unaligned data

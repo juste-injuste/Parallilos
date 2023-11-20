@@ -30,25 +30,27 @@ int main()
 
   // heap array
   const size_t n = 20;
-  SIMD<type>::Array a = SIMD<type>::make_array({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-  SIMD<type>::Array b = SIMD<type>::make_array({9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-  SIMD<type>::Array c = SIMD<type>::make_array(n);
+  Array<type> a = Array<type>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  Array<type> b = Array<type>({9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  Array<type> c = Array<type>(n);
 
   // parallel processing
   for (const size_t k : SIMD<type>::parallel(n))
   {
-    simd_storea(c.get()+k, simd_mul(SIMD<type>::as_vector(a, k), SIMD<type>::as_vector(b, k)));
+    simd_storea(c+k, simd_mul(a.as_vector(k), b.as_vector(k)));
     // simd_storea(c.get()+k, simd_mul(simd_loada(a.get()+k), simd_loada(b.get()+k)));
   }
 
   // sequential fallback
   for (const size_t k : SIMD<type>::sequential(n))
   {
-    c.get()[k] = a.get()[k] * b.get()[k];
+    c[k] = a[k] * b[k];
   }
 
   // display result array
-  print_info(c.get(), n);
+  print_info(c.data(), n);
 
-  // SIMD<float>::Array arr_a = SIMD<float>::make_array({1, 2, 3, 4, 5});
+  auto arr_a = Array<char>({1, 2, 3, 4, 5});
+
+  arr_a.data();
 }
