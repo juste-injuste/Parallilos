@@ -40,14 +40,12 @@ facilitate generic parallelism.
 #include <cstddef>      // for size_t
 #include <cmath>        // for std::sqrt
 #include <cstdlib>      // for std::malloc, std::free
-#include <limits>       // for std::numeric_limits
-#include <memory>       // for std::unique_ptr
 #include <ostream>      // for std::ostream
 #include <iostream>     // for std::cerr
 # include <type_traits> // for std::is_arithmetic
 #if defined(PARALLILOS_WARNINGS)
 # include <string>      // for std::string, std::to_string
-# include <type_traits> // for std::is_integral, std::is_unsigned, std::is_floating_point
+# include <type_traits> // for std::is_floating_point, std::is_unsigned
 # include <typeinfo>    // to use operator typeid
 #endif
 // --Parallilos library-----------------------------------------------------------------------------
@@ -261,12 +259,12 @@ namespace Parallilos
     };
   }
   
-  // not too sure about the portability of this. might have to rethink it.
   template<typename V>
   struct MaskOf
   {
     using Type = bool;
   };
+  // not too sure about the portability of this. might have to rethink it.
   // template<typename V>
   // using MaskOf = typename SIMD<typename std::remove_reference<decltype(std::declval<V>()[0])>::type>::Mask;
 
