@@ -21,7 +21,7 @@ void print_info(T* array, size_t n)
   std::cout << "Parallel passes:          " << SIMD<T>::parallel(n).passes   << '\n';
   std::cout << "Sequential passes:        " << SIMD<T>::sequential(n).passes << '\n';
 }
-
+#include <cxxabi.h>
 int main()
 {
   using namespace Parallilos;
@@ -37,7 +37,6 @@ int main()
   for (auto k : SIMD<type>::parallel(n))
   {
     simd_storea(c+k, simd_mul(a.as_vector(k), b.as_vector(k)));
-    // simd_storea(c.get()+k, simd_mul(simd_loada(a.get()+k), simd_loada(b.get()+k)));
   }
 
   // sequential fallback
@@ -49,10 +48,10 @@ int main()
   // display result array
   print_info(c.data(), n);
 
-  SIMD<double>::Type v1{};
-  SIMD<char>::Type v2{};
-  SIMD<int32_t>::Type v3{};
-  SIMD<float>::Type v4{};
+  SIMD<double>::Type  v1 = simd_setval<double>(1);
+  SIMD<char>::Type    v2 = simd_setval<char>('2');
+  SIMD<int32_t>::Type v3 = simd_setval<int32_t>(3);
+  SIMD<float>::Type   v4 = simd_setval<float>(4);
 
   auto m1 = simd_gt(v1, v1);
   auto m2 = simd_gt(v2, v2);
@@ -63,4 +62,9 @@ int main()
   std::cout << typeid(decltype(m2)).name() << '\n';
   std::cout << typeid(decltype(m3)).name() << '\n';
   std::cout << typeid(decltype(m4)).name() << '\n';
+
+  std::cout << "double: " << v1 << '\n';
+  std::cout << "char:   " << v2 << '\n';
+  std::cout << "int32:  " << v3 << '\n';
+  std::cout << "float:  " << v4 << '\n';
 }
