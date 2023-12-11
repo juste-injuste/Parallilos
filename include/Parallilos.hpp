@@ -557,7 +557,6 @@ namespace Parallilos
 # define PARALLILOS_F32_SQRT(a)               _mm512_sqrt_ps(a)
 # define PARALLILOS_F32_ADDMUL(a, b, c)       _mm512_fmadd_ps(b, c, a)
 # define PARALLILOS_F32_SUBMUL(a, b, c)       _mm512_fnmadd_ps(a, b, c)
-
 # define PARALLILOS_F32_EQ(a, b)              _mm512_cmp_ps_mask(a, b, _CMP_EQ_UQ)
 # define PARALLILOS_F32_NEQ(a, b)             _mm512_cmp_ps_mask(a, b, _CMP_NEQ_UQ)
 # define PARALLILOS_F32_GT(a, b)              _mm512_cmp_ps_mask(a, b, _CMP_GT_OQ)
@@ -581,7 +580,6 @@ namespace Parallilos
 # define PARALLILOS_F32_SQRT(a)               _mm256_sqrt_ps(a)
 # define PARALLILOS_F32_ADDMUL(a, b, c)       _mm256_fmadd_ps(b, c, a)
 # define PARALLILOS_F32_SUBMUL(a, b, c)       _mm256_fnmadd_ps(a, b, c)
-
 # define PARALLILOS_F32_EQ(a, b)              _mm256_cmp_ps(a, b, _CMP_EQ_UQ)
 # define PARALLILOS_F32_NEQ(a, b)             _mm256_cmp_ps(a, b, _CMP_NEQ_UQ)
 # define PARALLILOS_F32_GT(a, b)              _mm256_cmp_ps(a, b, _CMP_GT_OQ)
@@ -605,7 +603,6 @@ namespace Parallilos
 # define PARALLILOS_F32_SQRT(a)               _mm256_sqrt_ps(a)
 # define PARALLILOS_F32_ADDMUL(a, b, c)       _mm256_add_ps(a, _mm256_mul_ps(b, c))
 # define PARALLILOS_F32_SUBMUL(a, b, c)       _mm256_sub_ps(a, _mm256_mul_ps(b, c))
-
 # define PARALLILOS_F32_EQ(a, b)              _mm256_cmp_ps(a, b, _CMP_EQ_UQ)
 # define PARALLILOS_F32_NEQ(a, b)             _mm256_cmp_ps(a, b, _CMP_NEQ_UQ)
 # define PARALLILOS_F32_GT(a, b)              _mm256_cmp_ps(a, b, _CMP_GT_OQ)
@@ -629,7 +626,6 @@ namespace Parallilos
 # define PARALLILOS_F32_SQRT(a)               _mm_sqrt_ps(a)
 # define PARALLILOS_F32_ADDMUL(a, b, c)       _mm_add_ps(a, _mm_mul_ps(b, c))
 # define PARALLILOS_F32_SUBMUL(a, b, c)       _mm_sub_ps(a, _mm_mul_ps(b, c))
-
 # define PARALLILOS_F32_EQ(a, b)              _mm_cmpeq_ps (a, b)
 # define PARALLILOS_F32_NEQ(a, b)             _mm_cmpneq_ps (a, b)
 # define PARALLILOS_F32_GT(a, b)              _mm_cmpgt_ps(a, b)
@@ -789,7 +785,6 @@ namespace Parallilos
 # define PARALLILOS_F64_SQRT(a)               _mm512_sqrt_pd(a)
 # define PARALLILOS_F64_ADDMUL(a, b, c)       _mm512_fmadd_pd(b, c, a)
 # define PARALLILOS_F64_SUBMUL(a, b, c)       _mm512_fnmadd_pd(a, b, c)
-
 # define PARALLILOS_F64_EQ(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_EQ_UQ)
 # define PARALLILOS_F64_NEQ(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_NEQ_UQ)
 # define PARALLILOS_F64_GT(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_GT_OQ)
@@ -813,7 +808,6 @@ namespace Parallilos
 # define PARALLILOS_F64_SQRT(a)               _mm256_sqrt_pd(a)
 # define PARALLILOS_F64_ADDMUL(a, b, c)       _mm256_fmadd_pd(b, c, a)
 # define PARALLILOS_F64_SUBMUL(a, b, c)       _mm256_fnmadd_pd(a, b, c)
-
 # define PARALLILOS_F64_EQ(a, b)              _mm256_cmp_pd(a, b, _CMP_EQ_UQ)
 # define PARALLILOS_F64_NEQ(a, b)             _mm256_cmp_pd(a, b, _CMP_NEQ_UQ)
 # define PARALLILOS_F64_GT(a, b)              _mm256_cmp_pd(a, b, _CMP_GT_OQ)
@@ -837,7 +831,6 @@ namespace Parallilos
 # define PARALLILOS_F64_SQRT(a)               _mm256_sqrt_pd(a)
 # define PARALLILOS_F64_ADDMUL(a, b, c)       _mm256_add_pd(a, _mm256_mul_pd(b, c))
 # define PARALLILOS_F64_SUBMUL(a, b, c)       _mm256_sub_pd(a, _mm256_mul_pd(b, c))
-
 # define PARALLILOS_F64_EQ(a, b)              _mm256_cmp_pd(a, b, _CMP_EQ_UQ)
 # define PARALLILOS_F64_NEQ(a, b)             _mm256_cmp_pd(a, b, _CMP_NEQ_UQ)
 # define PARALLILOS_F64_GT(a, b)              _mm256_cmp_pd(a, b, _CMP_GT_OQ)
@@ -861,7 +854,6 @@ namespace Parallilos
 # define PARALLILOS_F64_SQRT(a)               _mm_sqrt_pd(a)
 # define PARALLILOS_F64_ADDMUL(a, b, c)       _mm_add_pd(a, _mm_mul_pd(b, c))
 # define PARALLILOS_F64_SUBMUL(a, b, c)       _mm_sub_pd(a, _mm_mul_pd(b, c))
-
 # define PARALLILOS_F64_EQ(a, b)              _mm_cmpeq_pd(a, b)
 # define PARALLILOS_F64_NEQ(a, b)             _mm_cmpneq_pd(a, b)
 # define PARALLILOS_F64_GT(a, b)              _mm_cmpgt_pd(a, b)
@@ -1025,7 +1017,6 @@ namespace Parallilos
 #   undef  PARALLILOS_I32_DIV
 #   define PARALLILOS_I32_DIV(a, b)           _mm512_div_epi32(a, b)
 # endif
-
 # define PARALLILOS_I32_EQ(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_EQ)
 # define PARALLILOS_I32_NEQ(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NE)
 # define PARALLILOS_I32_GT(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NLE)
