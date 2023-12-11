@@ -21,7 +21,7 @@ void print_info(T* array, size_t n)
   std::cout << "Parallel passes:          " << SIMD<T>::parallel(n).passes   << '\n';
   std::cout << "Sequential passes:        " << SIMD<T>::sequential(n).passes << '\n';
 }
-#include <cxxabi.h>
+
 int main()
 {
   using namespace Parallilos;
@@ -44,7 +44,7 @@ int main()
   {
     c[k] = a[k] * b[k];
   }
-
+  
   // display result array
   print_info(c.data(), n);
 
