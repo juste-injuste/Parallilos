@@ -38,6 +38,7 @@ facilitate generic parallelism.
 #define PARALLILOS_HPP
 // --necessary standard libraries-------------------------------------------------------------------
 #include <cstddef>      // for size_t
+#include <cstdint>      // for fixed-sized integers
 #include <cmath>        // for std::sqrt
 #include <cstdlib>      // for std::malloc, std::free
 #include <ostream>      // for std::ostream
@@ -54,37 +55,37 @@ facilitate generic parallelism.
 # define PARALLILOS_COMPILER_SUPPORTS_AVX
 # define PARALLILOS_COMPILER_SUPPORTS_NEON
 # define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# if (__cplusplus < 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
+# if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
 #   define PARALLILOS_HAS_ALIGNED_ALLOC
 # endif
-#elif defined(__clang__)
-# define PARALLILOS_COMPILER_SUPPORTS_SSE
-# define PARALLILOS_COMPILER_SUPPORTS_AVX
-# define PARALLILOS_COMPILER_SUPPORTS_NEON
-# define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# if (__cplusplus < 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
-#   define PARALLILOS_HAS_ALIGNED_ALLOC
-# endif
-#elif defined(__MINGW32__) || defined(__MINGW64__)
-# define PARALLILOS_COMPILER_SUPPORTS_SSE
-# define PARALLILOS_COMPILER_SUPPORTS_AVX
-# define PARALLILOS_INLINE __attribute__((always_inline)) inline
-#elif defined(__apple_build_version__)
-# define PARALLILOS_COMPILER_SUPPORTS_SSE
-# define PARALLILOS_COMPILER_SUPPORTS_AVX
-# define PARALLILOS_INLINE __attribute__((always_inline)) inline
-#elif defined(_MSC_VER)
-# define PARALLILOS_COMPILER_SUPPORTS_SSE
-# define PARALLILOS_COMPILER_SUPPORTS_AVX
-# define PARALLILOS_INLINE __forceinline
-#elif defined(__INTEL_COMPILER)
-# define PARALLILOS_COMPILER_SUPPORTS_SSE
-# define PARALLILOS_COMPILER_SUPPORTS_AVX
-# define PARALLILOS_COMPILER_SUPPORTS_SVML
-# define PARALLILOS_INLINE __forceinline
-#elif defined(__ARMCC_VERSION)
-# define PARALLILOS_COMPILER_SUPPORTS_NEON
-# define PARALLILOS_INLINE __forceinline
+// #elif defined(__clang__)
+// # define PARALLILOS_COMPILER_SUPPORTS_SSE
+// # define PARALLILOS_COMPILER_SUPPORTS_AVX
+// # define PARALLILOS_COMPILER_SUPPORTS_NEON
+// # define PARALLILOS_INLINE __attribute__((always_inline)) inline
+// # if (__cplusplus >= 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
+// #   define PARALLILOS_HAS_ALIGNED_ALLOC
+// # endif
+// #elif defined(__MINGW32__) || defined(__MINGW64__)
+// # define PARALLILOS_COMPILER_SUPPORTS_SSE
+// # define PARALLILOS_COMPILER_SUPPORTS_AVX
+// # define PARALLILOS_INLINE __attribute__((always_inline)) inline
+// #elif defined(__apple_build_version__)
+// # define PARALLILOS_COMPILER_SUPPORTS_SSE
+// # define PARALLILOS_COMPILER_SUPPORTS_AVX
+// # define PARALLILOS_INLINE __attribute__((always_inline)) inline
+// #elif defined(_MSC_VER)
+// # define PARALLILOS_COMPILER_SUPPORTS_SSE
+// # define PARALLILOS_COMPILER_SUPPORTS_AVX
+// # define PARALLILOS_INLINE __forceinline
+// #elif defined(__INTEL_COMPILER)
+// # define PARALLILOS_COMPILER_SUPPORTS_SSE
+// # define PARALLILOS_COMPILER_SUPPORTS_AVX
+// # define PARALLILOS_COMPILER_SUPPORTS_SVML
+// # define PARALLILOS_INLINE __forceinline
+// #elif defined(__ARMCC_VERSION)
+// # define PARALLILOS_COMPILER_SUPPORTS_NEON
+// # define PARALLILOS_INLINE __forceinline
 #else
 # if __cplusplus >= 202302L
 #   warning "warning: Parallilos: your compiler is not supported."
@@ -153,8 +154,12 @@ facilitate generic parallelism.
 #endif
 
 #if defined(PARALLILOS_SIMD_HEADER)
-# define __OPTIMIZE__
-# include PARALLILOS_SIMD_HEADER
+# if not defined(__OPTIMIZE__)
+#   define __OPTIMIZE__
+#   include PARALLILOS_SIMD_HEADER
+# else
+#   include PARALLILOS_SIMD_HEADER
+# endif
 #endif
 
 #if defined(PARALLILOS_COMPILER_SUPPORTS_SVML)
@@ -201,13 +206,13 @@ namespace Parallilos
     }
 
     template<typename T, typename... Tn>
-    inline auto get_type_name() -> typename std::enable_if<sizeof...(Tn) == 0, std::string>::Type
+    inline auto get_type_name() -> typename std::enable_if<sizeof...(Tn) == 0, std::string>::type
     {
       return type_name<T>();
     }
 
     template<typename T, typename... Tn>
-    inline auto get_type_name() -> typename std::enable_if<sizeof...(Tn) != 0, std::string>::Type
+    inline auto get_type_name() -> typename std::enable_if<sizeof...(Tn) != 0, std::string>::type
     {
       return type_name<T>() + ", " + get_type_name<Tn...>();
     }
@@ -222,15 +227,15 @@ namespace Parallilos
     class Parallel
     {
     public:
-      inline explicit Parallel(const size_t n_elements) noexcept :
+      explicit Parallel(const size_t n_elements) noexcept :
         current_index{0},
         passes_left{size ? (n_elements / size) : 0}
       {}
-      inline size_t operator*() noexcept               {return current_index;}
-      inline void operator++() noexcept                {--passes_left, current_index += size;}
-      inline bool operator!=(const Parallel&) noexcept {return passes_left;}
-      inline Parallel& begin() noexcept                {return *this;}
-      inline Parallel end() noexcept                   {return Parallel{0};}
+      size_t    operator*()                 noexcept {return current_index;}
+      void      operator++()                noexcept {--passes_left, current_index += size;}
+      bool      operator!=(const Parallel&) noexcept {return passes_left;}
+      Parallel& begin()                     noexcept {return *this;}
+      Parallel  end()                       noexcept {return Parallel{0};}
     private:
       size_t current_index;
       size_t passes_left;
@@ -242,74 +247,45 @@ namespace Parallilos
     class Sequential
     {
     public:
-      inline explicit Sequential(const size_t n_elements) noexcept :
+      explicit Sequential(const size_t n_elements) noexcept :
         current_index{size ? ((n_elements / size) * size) : 0},
         passes_left{n_elements - current_index}
       {}
-      inline size_t operator*() noexcept                 {return current_index;}
-      inline void operator++() noexcept                  {--passes_left, ++current_index;}
-      inline bool operator!=(const Sequential&) noexcept {return passes_left;}
-      inline Sequential& begin() noexcept                {return *this;}
-      inline Sequential end() noexcept                   {return Sequential{0};}
+      size_t      operator*()                   noexcept {return current_index;}
+      void        operator++()                  noexcept {--passes_left, ++current_index;}
+      bool        operator!=(const Sequential&) noexcept {return passes_left;}
+      Sequential& begin()                       noexcept {return *this;}
+      Sequential  end()                         noexcept {return Sequential{0};}
     private:
       size_t current_index;
       size_t passes_left;
     public:
       const size_t passes = passes_left;
     };
-  }
-  
-  template<typename V>
-  struct MaskOf
-  {
-    using Type = bool;
-  };
-  // not too sure about the portability of this. might have to rethink it.
-  // template<typename V>
-  // using MaskOf = typename SIMD<typename std::remove_reference<decltype(std::declval<V>()[0])>::type>::Mask;
 
+    template<typename T>
+    auto maskof(T) -> bool;
+  }
+
+  template<typename V>
+  using MaskOf = decltype(Backend::maskof(V()));
 
   template<typename T>
   class Array final
   {
   static_assert(std::is_arithmetic<T>::value, "T in Array<T> must be an arithmetic type");
   public:
-    inline const T* data(const size_t k = 0) const noexcept
-    {
-      return array + k;
-    }
+    const T* data(const size_t k = 0)   const noexcept { return array + k; }
+    T*       data(const size_t k = 0)         noexcept { return array + k; }
+    size_t   size()                     const noexcept { return numel; }
+    T        operator[](const size_t k) const noexcept { return array[k]; }
+    T&       operator[](const size_t k)       noexcept { return array[k]; }
+    operator T*()                             noexcept { return array; }
 
-    inline T* data(const size_t k = 0) noexcept
-    {
-      return array + k;
-    }
+    typename SIMD<T>::Type& as_vector(const size_t k) noexcept
+    { return (typename SIMD<T>::Type&)(array[k]); }   
 
-    inline size_t size() const noexcept
-    {
-      return numel;
-    }
-
-    inline T operator [](const size_t k) const noexcept
-    {
-      return array[k];
-    }
-
-    inline T& operator [](const size_t k) noexcept
-    {
-      return array[k];
-    }
-
-    inline typename SIMD<T>::Type& as_vector(const size_t k) noexcept
-    {
-      return (typename SIMD<T>::Type&)(array[k]);
-    }   
-
-    inline operator T*() noexcept
-    {
-      return array;
-    }
-
-    inline Array(const size_t number_of_elements) noexcept
+    Array(const size_t number_of_elements) noexcept
     {
       constexpr size_t alignment = SIMD<T>::alignment;
       // early return
@@ -345,7 +321,7 @@ namespace Parallilos
 #   endif
     }
 
-    inline Array(const std::initializer_list<T> initializer_list) :
+    Array(const std::initializer_list<T> initializer_list) :
       Array(initializer_list.size())
     {
       if (array != nullptr)
@@ -358,38 +334,41 @@ namespace Parallilos
       }
     }
 
-    inline ~Array() noexcept
+    ~Array() noexcept
     {
 #   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
+      std::free(array);
+#   else
+      constexpr size_t alignment = SIMD<T>::alignment;
       if (alignment && array)
       {
         std::free(reinterpret_cast<void**>(array)[-1]);
         return;
       }
 #   endif
-      std::free(array);
     }
   private:
-    T* array     = nullptr;
+    T*     array = nullptr;
     size_t numel = 0;
   };
 
   template<typename T>
-  struct SIMD
+  class SIMD
   {
   static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type");
+  public:
     static constexpr size_t size      = 0;
     static constexpr size_t alignment = 0;
     using Type = T;
     using Mask = bool;
     static constexpr const char* set = "no SIMD instruction set used for this type";
 
-    static inline Backend::Parallel<size> parallel(const size_t n_elements) noexcept
+    static Backend::Parallel<size> parallel(const size_t n_elements) noexcept
     {
       return Backend::Parallel<size>{n_elements};
     }
     
-    static inline Backend::Sequential<size> sequential(const size_t n_elements) noexcept
+    static Backend::Sequential<size> sequential(const size_t n_elements) noexcept
     {
       return Backend::Sequential<size>{n_elements};
     }
@@ -397,10 +376,11 @@ namespace Parallilos
 
   // T = type, V = vector type, M = mask type, A = alignment, S = sets used
   #define PARALLILOS_MAKE_SIMD(T, V, M, A, S)                                               \
-    template <>                                                                             \
-    struct SIMD<T>                                                                          \
+    template<>                                                                              \
+    class SIMD<T>                                                                           \
     {                                                                                       \
     static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type"); \
+    public:                                                                                 \
       static constexpr size_t size      = sizeof(V)/sizeof(T);                              \
       static constexpr size_t alignment = A;                                                \
       using Type = V;                                                                       \
@@ -415,10 +395,9 @@ namespace Parallilos
         return Backend::Sequential<size>{n_elements};                                       \
       }                                                                                     \
     };                                                                                      \
-    template<>                                                                              \
-    struct MaskOf<V>                                                                        \
+    namespace Backend                                                                       \
     {                                                                                       \
-      using Type = M;                                                                       \
+      auto maskof(V) -> M;                                                                  \
     }
 
   // load a vector from unaligned data
@@ -526,37 +505,37 @@ namespace Parallilos
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_eq(V a, V b) -> typename MaskOf<V>::Type
+  PARALLILOS_INLINE auto simd_eq(V a, V b) -> decltype(Backend::maskof(V()))
   {
     return a == b;
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_neq(V a, V b) -> typename MaskOf<V>::Type
+  PARALLILOS_INLINE auto simd_neq(V a, V b) -> decltype(Backend::maskof(V()))
   {
     return a != b;
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_gt(V a, V b) -> typename MaskOf<V>::Type
+  PARALLILOS_INLINE auto simd_gt(V a, V b) -> decltype(Backend::maskof(V()))
   {
     return a > b;
   }
 
-  template <typename T, typename V>
-  PARALLILOS_INLINE auto simd_gte(V a, V b) -> typename MaskOf<V>::Type
+  template <typename V>
+  PARALLILOS_INLINE auto simd_gte(V a, V b) -> decltype(Backend::maskof(V()))
   {
     return a >= b;
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_lt(V a, V b) -> typename MaskOf<V>::Type
+  PARALLILOS_INLINE auto simd_lt(V a, V b) -> decltype(Backend::maskof(V()))
   {
     return a < b;
   }
 
   template <typename V>
-  PARALLILOS_INLINE auto simd_lte(V a, V b) -> typename MaskOf<V>::Type
+  PARALLILOS_INLINE auto simd_lte(V a, V b) -> decltype(Backend::maskof(V()))
   {
     return a <= b;
   }
@@ -651,16 +630,16 @@ namespace Parallilos
 # define PARALLILOS_F32_ADDMUL(a, b, c)       _mm_add_ps(a, _mm_mul_ps(b, c))
 # define PARALLILOS_F32_SUBMUL(a, b, c)       _mm_sub_ps(a, _mm_mul_ps(b, c))
 
-# define PARALLILOS_F32_EQ(a, b)              _mm_cmp_ps(a, b, _CMP_EQ_UQ)
-# define PARALLILOS_F32_NEQ(a, b)             _mm_cmp_ps(a, b, _CMP_NEQ_UQ)
-# define PARALLILOS_F32_GT(a, b)              _mm_cmp_ps(a, b, _CMP_GT_OQ)
-# define PARALLILOS_F32_GTE(a, b)             _mm_cmp_ps(a, b, _CMP_GE_OQ)
-# define PARALLILOS_F32_LT(a, b)              _mm_cmp_ps(a, b, _CMP_LT_OQ)
-# define PARALLILOS_F32_LTE(a, b)             _mm_cmp_ps(a, b, _CMP_LE_OQ)
+# define PARALLILOS_F32_EQ(a, b)              _mm_cmpeq_ps (a, b)
+# define PARALLILOS_F32_NEQ(a, b)             _mm_cmpneq_ps (a, b)
+# define PARALLILOS_F32_GT(a, b)              _mm_cmpgt_ps(a, b)
+# define PARALLILOS_F32_GTE(a, b)             _mm_cmpge_ps(a, b)
+# define PARALLILOS_F32_LT(a, b)              _mm_cmplt_ps(a, b)
+# define PARALLILOS_F32_LTE(a, b)             _mm_cmple_ps(a, b)
 #elif defined(PARALLILOS_NEON) || defined(PARALLILOS_NEON64)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
 # define PARALLILOS_F32
-  PARALLILOS_MAKE_SIMD(float, float32x4_t, 0, "NEON");
+  PARALLILOS_MAKE_SIMD(float, float32x4_t, float32x4_t, 0, "NEON");
 # define PARALLILOS_F32_LOADU(data)           vld1q_f32(data)
 # define PARALLILOS_F32_LOADA(data)           vld1q_f32(data)
 # define PARALLILOS_F32_STOREU(addr, data)    vst1q_f32(addr, data)
@@ -684,127 +663,109 @@ namespace Parallilos
 # undef PARALLILOS_F32_SETZERO
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_loadu(const float data[]) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_LOADU(data);
 # undef PARALLILOS_F32_LOADU
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_loada(const float data[]) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_LOADA(data);
 # undef PARALLILOS_F32_LOADA
   }
 
-  template <>
   PARALLILOS_INLINE void simd_storeu(float addr[], SIMD<float>::Type data)
   {
     PARALLILOS_F32_STOREU(addr, data);
 # undef PARALLILOS_F32_STOREU
   }
 
-  template <>
   PARALLILOS_INLINE void simd_storea(float addr[], SIMD<float>::Type data)
   {
     PARALLILOS_F32_STOREA(addr, data);
 # undef PARALLILOS_F32_STOREA
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_setval(const float value) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_SETVAL(value);
 # undef PARALLILOS_F32_SETVAL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_add(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_ADD(a, b);
 # undef PARALLILOS_F32_ADD
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_mul(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_MUL(a, b);
 # undef PARALLILOS_F32_MUL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_sub(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_SUB(a, b);
 # undef PARALLILOS_F32_SUB
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_div(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_DIV(a, b);
 # undef PARALLILOS_F32_DIV
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_sqrt(SIMD<float>::Type a) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_SQRT(a);
 # undef PARALLILOS_F32_SQRT
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_addmul(SIMD<float>::Type a, SIMD<float>::Type b, SIMD<float>::Type c) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_ADDMUL(a, b, c);
 #   undef PARALLILOS_F32_ADDMUL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_submul(SIMD<float>::Type a, SIMD<float>::Type b, SIMD<float>::Type c) -> SIMD<float>::Type
   {
     return PARALLILOS_F32_SUBMUL(a, b, c);
 # undef PARALLILOS_F32_SUBMUL
   }
 
-  template <>
-  PARALLILOS_INLINE auto simd_eq<SIMD<float>::Type>(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
+  PARALLILOS_INLINE auto simd_eq(SIMD<float>::Type a, SIMD<float>::Type b) -> decltype(Backend::maskof(SIMD<float>::Type()))
   {
     return PARALLILOS_F32_EQ(a, b);
 # undef PARALLILOS_F32_EQ
   }
 
-  template <>
-  PARALLILOS_INLINE auto simd_neq<SIMD<float>::Type>(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
+  PARALLILOS_INLINE auto simd_neq(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
   {
     return PARALLILOS_F32_NEQ(a, b);
 # undef PARALLILOS_F32_NEQ
   }
 
-  template <>
-  PARALLILOS_INLINE auto simd_gt<SIMD<float>::Type>(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
+  PARALLILOS_INLINE auto simd_gt(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
   {
     return PARALLILOS_F32_GT(a, b);
 #   undef PARALLILOS_F32_GT
   }
 
-  template <>
-  PARALLILOS_INLINE auto simd_gte<SIMD<float>::Type>(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
+  PARALLILOS_INLINE auto simd_gte(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
   {
     return PARALLILOS_F32_GTE(a, b);
 # undef PARALLILOS_F32_GTE
   }
 
-  template <>
-  PARALLILOS_INLINE auto simd_lt<SIMD<float>::Type>(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
+  PARALLILOS_INLINE auto simd_lt(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
   {
     return PARALLILOS_F32_LT(a, b);
 #   undef PARALLILOS_F32_LT
   }
 
-  template <>
-  PARALLILOS_INLINE auto simd_lte<SIMD<float>::Type>(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
+  PARALLILOS_INLINE auto simd_lte(SIMD<float>::Type a, SIMD<float>::Type b) -> SIMD<float>::Mask
   {
     return PARALLILOS_F32_LTE(a, b);
 # undef PARALLILOS_F32_LTE
@@ -814,7 +775,7 @@ namespace Parallilos
 #if defined(PARALLILOS_AVX512F)
 # define PARALLILOS_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
-  PARALLILOS_MAKE_SIMD(double, __m512d, __m512d, 64, "AVX512F");
+  PARALLILOS_MAKE_SIMD(double, __m512d, __mmask8, 64, "AVX512F");
 # define PARALLILOS_F64_LOADU(data)           _mm512_loadu_pd(data)
 # define PARALLILOS_F64_LOADA(data)           _mm512_load_pd(data)
 # define PARALLILOS_F64_STOREU(addr, data)    _mm512_storeu_pd((void*)addr, data)
@@ -828,6 +789,13 @@ namespace Parallilos
 # define PARALLILOS_F64_SQRT(a)               _mm512_sqrt_pd(a)
 # define PARALLILOS_F64_ADDMUL(a, b, c)       _mm512_fmadd_pd(b, c, a)
 # define PARALLILOS_F64_SUBMUL(a, b, c)       _mm512_fnmadd_pd(a, b, c)
+
+# define PARALLILOS_F64_EQ(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_EQ_UQ)
+# define PARALLILOS_F64_NEQ(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_NEQ_UQ)
+# define PARALLILOS_F64_GT(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_GT_OQ)
+# define PARALLILOS_F64_GTE(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_GE_OQ)
+# define PARALLILOS_F64_LT(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_LT_OQ)
+# define PARALLILOS_F64_LTE(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_LE_OQ)
 #elif defined(PARALLILOS_FMA)
 # define PARALLILOS_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
@@ -845,6 +813,13 @@ namespace Parallilos
 # define PARALLILOS_F64_SQRT(a)               _mm256_sqrt_pd(a)
 # define PARALLILOS_F64_ADDMUL(a, b, c)       _mm256_fmadd_pd(b, c, a)
 # define PARALLILOS_F64_SUBMUL(a, b, c)       _mm256_fnmadd_pd(a, b, c)
+
+# define PARALLILOS_F64_EQ(a, b)              _mm256_cmp_pd(a, b, _CMP_EQ_UQ)
+# define PARALLILOS_F64_NEQ(a, b)             _mm256_cmp_pd(a, b, _CMP_NEQ_UQ)
+# define PARALLILOS_F64_GT(a, b)              _mm256_cmp_pd(a, b, _CMP_GT_OQ)
+# define PARALLILOS_F64_GTE(a, b)             _mm256_cmp_pd(a, b, _CMP_GE_OQ)
+# define PARALLILOS_F64_LT(a, b)              _mm256_cmp_pd(a, b, _CMP_LT_OQ)
+# define PARALLILOS_F64_LTE(a, b)             _mm256_cmp_pd(a, b, _CMP_LE_OQ)
 #elif defined(PARALLILOS_AVX)
 # define PARALLILOS_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
@@ -862,6 +837,13 @@ namespace Parallilos
 # define PARALLILOS_F64_SQRT(a)               _mm256_sqrt_pd(a)
 # define PARALLILOS_F64_ADDMUL(a, b, c)       _mm256_add_pd(a, _mm256_mul_pd(b, c))
 # define PARALLILOS_F64_SUBMUL(a, b, c)       _mm256_sub_pd(a, _mm256_mul_pd(b, c))
+
+# define PARALLILOS_F64_EQ(a, b)              _mm256_cmp_pd(a, b, _CMP_EQ_UQ)
+# define PARALLILOS_F64_NEQ(a, b)             _mm256_cmp_pd(a, b, _CMP_NEQ_UQ)
+# define PARALLILOS_F64_GT(a, b)              _mm256_cmp_pd(a, b, _CMP_GT_OQ)
+# define PARALLILOS_F64_GTE(a, b)             _mm256_cmp_pd(a, b, _CMP_GE_OQ)
+# define PARALLILOS_F64_LT(a, b)              _mm256_cmp_pd(a, b, _CMP_LT_OQ)
+# define PARALLILOS_F64_LTE(a, b)             _mm256_cmp_pd(a, b, _CMP_LE_OQ)
 #elif defined(PARALLILOS_SSE2)
 # define PARALLILOS_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
@@ -879,10 +861,17 @@ namespace Parallilos
 # define PARALLILOS_F64_SQRT(a)               _mm_sqrt_pd(a)
 # define PARALLILOS_F64_ADDMUL(a, b, c)       _mm_add_pd(a, _mm_mul_pd(b, c))
 # define PARALLILOS_F64_SUBMUL(a, b, c)       _mm_sub_pd(a, _mm_mul_pd(b, c))
+
+# define PARALLILOS_F64_EQ(a, b)              _mm_cmpeq_pd(a, b)
+# define PARALLILOS_F64_NEQ(a, b)             _mm_cmpneq_pd(a, b)
+# define PARALLILOS_F64_GT(a, b)              _mm_cmpgt_pd(a, b)
+# define PARALLILOS_F64_GTE(a, b)             _mm_cmpge_pd(a, b)
+# define PARALLILOS_F64_LT(a, b)              _mm_cmplt_pd(a, b)
+# define PARALLILOS_F64_LTE(a, b)             _mm_cmple_pd(a, b)
 #elif defined(PARALLILOS_NEON) || defined(PARALLILOS_NEON64)
 # define PARALLILOS_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
-  PARALLILOS_MAKE_SIMD(double, float64x4_t, 0, "NEON");
+  PARALLILOS_MAKE_SIMD(double, float64x4_t, float64x4_t, 0, "NEON");
 # define PARALLILOS_F64_LOADU(data)           vld1q_f64(data)
 # define PARALLILOS_F64_LOADA(data)           vld1q_f64(data)
 # define PARALLILOS_F64_STOREU(addr, data)    vst1q_f64(addr, data)
@@ -906,95 +895,119 @@ namespace Parallilos
 # undef PARALLILOS_F64_SETZERO
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_loadu(const double data[]) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_LOADU(data);
 # undef PARALLILOS_F64_LOADU
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_loada(const double data[]) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_LOADA(data);
 # undef PARALLILOS_F64_LOADA
   }
 
-  template <> 
   PARALLILOS_INLINE void simd_storeu(double addr[], SIMD<double>::Type data)
   {
     PARALLILOS_F64_STOREU(addr, data);
 # undef PARALLILOS_F64_STOREU
   }
 
-  template <>
   PARALLILOS_INLINE void simd_storea(double addr[], SIMD<double>::Type data)
   {
     PARALLILOS_F64_STOREA(addr, data);
 # undef PARALLILOS_F64_STOREA
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_setval(const double value) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_SETVAL(value);
 # undef PARALLILOS_F64_SETVAL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_add(const SIMD<double>::Type a, const SIMD<double>::Type b) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_ADD(a, b);
 # undef PARALLILOS_F64_ADD
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_mul(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_MUL(a, b);
 # undef PARALLILOS_F64_MUL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_sub(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_SUB(a, b);
 # undef PARALLILOS_F64_SUB
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_div(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_DIV(a, b);
 # undef PARALLILOS_F64_DIV
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_sqrt(SIMD<double>::Type a) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_SQRT(a);
 # undef PARALLILOS_F64_SQRT
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_addmul(SIMD<double>::Type a, SIMD<double>::Type b, SIMD<double>::Type c) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_ADDMUL(a, b, c);
 # undef PARALLILOS_F64_ADDMUL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_submul(SIMD<double>::Type a, SIMD<double>::Type b, SIMD<double>::Type c) -> SIMD<double>::Type
   {
     return PARALLILOS_F64_SUBMUL(a, b, c);
 # undef PARALLILOS_F64_SUBMUL
+  }
+
+  PARALLILOS_INLINE auto simd_eq(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Mask
+  {
+    return PARALLILOS_F64_EQ(a, b);
+# undef PARALLILOS_F64_EQ
+  }
+
+  PARALLILOS_INLINE auto simd_neq(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Mask
+  {
+    return PARALLILOS_F64_NEQ(a, b);
+# undef PARALLILOS_F64_NEQ
+  }
+
+  PARALLILOS_INLINE auto simd_gt(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Mask
+  {
+    return PARALLILOS_F64_GT(a, b);
+#   undef PARALLILOS_F64_GT
+  }
+
+  PARALLILOS_INLINE auto simd_gte(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Mask
+  {
+    return PARALLILOS_F64_GTE(a, b);
+# undef PARALLILOS_F64_GTE
+  }
+
+  PARALLILOS_INLINE auto simd_lt(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Mask
+  {
+    return PARALLILOS_F64_LT(a, b);
+#   undef PARALLILOS_F64_LT
+  }
+
+  PARALLILOS_INLINE auto simd_lte(SIMD<double>::Type a, SIMD<double>::Type b) -> SIMD<double>::Mask
+  {
+    return PARALLILOS_F64_LTE(a, b);
+# undef PARALLILOS_F64_LTE
   }
 #endif
 
 #if defined(PARALLILOS_AVX512F)
 # define PARALLILOS_I32
   static_assert(sizeof(int32_t) == 4, "int32_t must be 32 bit");
-  PARALLILOS_MAKE_SIMD(int32_t, __m512i, __m512i, 64, "AVX512F");
+  PARALLILOS_MAKE_SIMD(int32_t, __m512i, __mmask16, 64, "AVX512F");
 # define PARALLILOS_I32_LOADU(data)           _mm512_loadu_si512(data)
 # define PARALLILOS_I32_LOADA(data)           _mm512_load_si512(data)
 # define PARALLILOS_I32_STOREU(addr, data)    _mm512_storeu_si512((void*)addr, data)
@@ -1012,6 +1025,13 @@ namespace Parallilos
 #   undef  PARALLILOS_I32_DIV
 #   define PARALLILOS_I32_DIV(a, b)           _mm512_div_epi32(a, b)
 # endif
+
+# define PARALLILOS_I32_EQ(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_EQ)
+# define PARALLILOS_I32_NEQ(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NE)
+# define PARALLILOS_I32_GT(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NLE)
+# define PARALLILOS_I32_GTE(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NLT)
+# define PARALLILOS_I32_LT(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_LT)
+# define PARALLILOS_I32_LTE(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_LE)
 #elif defined(PARALLILOS_AVX2)
 # define PARALLILOS_I32
   PARALLILOS_MAKE_SIMD(int32_t, __m256i, __m256i, 32, "AVX2, AVX");
@@ -1032,6 +1052,16 @@ namespace Parallilos
 #   undef  PARALLILOS_I32_DIV
 #   define PARALLILOS_I32_DIV(a, b)           _mm256_div_epi32(a, b)
 # endif
+  namespace Backend
+  {
+    const auto ALL_ONES = PARALLILOS_I32_SETVAL(0xFFFFFFFFu);
+  }
+# define PARALLILOS_I32_EQ(a, b)              _mm256_cmpeq_epi32(a, b)
+# define PARALLILOS_I32_NEQ(a, b)             _mm256_xor_si256(_mm256_cmpeq_epi32(a, b), Backend::ALL_ONES)
+# define PARALLILOS_I32_GT(a, b)              _mm256_cmpgt_epi32(a, b)
+# define PARALLILOS_I32_GTE(a, b)             _mm256_xor_si256(_mm256_cmpgt_epi32(b, a), Backend::ALL_ONES)
+# define PARALLILOS_I32_LT(a, b)              _mm256_cmpgt_epi32(b, a)
+# define PARALLILOS_I32_LTE(a, b)             _mm256_xor_si256(_mm256_cmpgt_epi32(a, b), Backend::ALL_ONES)
 #elif defined(PARALLILOS_SSE4_1)
 # define PARALLILOS_I32
   PARALLILOS_MAKE_SIMD(int32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
@@ -1052,6 +1082,16 @@ namespace Parallilos
 #   undef  PARALLILOS_I32_DIV
 #   define PARALLILOS_I32_DIV(a, b)           _mm_div_epi32(a, b)
 # endif
+  namespace Backend
+  {
+    const auto ALL_ONES = PARALLILOS_I32_SETVAL(0xFFFFFFFFu);
+  }
+# define PARALLILOS_I32_EQ(a, b)              _mm_cmpeq_epi32(a, b)
+# define PARALLILOS_I32_NEQ(a, b)             _mm_xor_si128(_mm_cmpeq_epi32(a, b), Backend::ALL_ONES)
+# define PARALLILOS_I32_GT(a, b)              _mm_cmpgt_epi32(a, b)
+# define PARALLILOS_I32_GTE(a, b)             _mm_xor_si128(_mm_cmplt_epi32(a, b), Backend::ALL_ONES)
+# define PARALLILOS_I32_LT(a, b)              _mm_cmplt_epi32(a, b)
+# define PARALLILOS_I32_LTE(a, b)             _mm_xor_si128(_mm_cmpgt_epi32(a, b), Backend::ALL_ONES)
 #elif defined(PARALLILOS_SSE2)
 # define PARALLILOS_I32
   PARALLILOS_MAKE_SIMD(int32_t, __m128i, __m128i, 16, "SSE2, SSE");
@@ -1072,6 +1112,16 @@ namespace Parallilos
 #   undef  PARALLILOS_I32_DIV
 #   define PARALLILOS_I32_DIV(a, b)           _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
 # endif
+  namespace Backend
+  {
+    const auto ALL_ONES = PARALLILOS_I32_SETVAL(0xFFFFFFFFu);
+  }
+# define PARALLILOS_I32_EQ(a, b)              _mm_cmpeq_epi32(a, b)
+# define PARALLILOS_I32_NEQ(a, b)             _mm_xor_si128(_mm_cmpeq_epi32(a, b), Backend::ALL_ONES)
+# define PARALLILOS_I32_GT(a, b)              _mm_cmpgt_epi32(a, b)
+# define PARALLILOS_I32_GTE(a, b)             _mm_xor_si128(_mm_cmplt_epi32(a, b), Backend::ALL_ONES)
+# define PARALLILOS_I32_LT(a, b)              _mm_cmplt_epi32(a, b)
+# define PARALLILOS_I32_LTE(a, b)             _mm_xor_si128(_mm_cmpgt_epi32(a, b), Backend::ALL_ONES)
 #endif
   
 #ifdef PARALLILOS_I32
@@ -1082,88 +1132,112 @@ namespace Parallilos
 # undef PARALLILOS_I32_SETZERO
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_loadu(const int32_t data[]) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_LOADU(data);
 # undef PARALLILOS_I32_LOADU
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_loada(const int32_t data[]) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_LOADA(data);
 # undef PARALLILOS_I32_LOADA
   }
 
-  template <>
   PARALLILOS_INLINE void simd_storeu(int32_t addr[], SIMD<int32_t>::Type data)
   {
     PARALLILOS_I32_STOREU(addr, data);
 # undef PARALLILOS_I32_STOREU
   }
 
-  template <>
   PARALLILOS_INLINE void simd_storea(int32_t addr[], SIMD<int32_t>::Type data)
   {
     PARALLILOS_I32_STOREA(addr, data);
 # undef PARALLILOS_I32_STOREA
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_setval(const int32_t value) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_SETVAL(value);
 # undef PARALLILOS_I32_SETVAL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_add(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_ADD(a, b);
 # undef PARALLILOS_I32_ADD
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_mul(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_MUL(a, b);
 # undef PARALLILOS_I32_MUL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_sub(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_SUB(a, b);
 # undef PARALLILOS_I32_SUB
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_div(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_DIV(a, b);
 # undef PARALLILOS_I32_DIV
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_sqrt(SIMD<int32_t>::Type a) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_SQRT(a);
 # undef PARALLILOS_I32_SQRT
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_addmul(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b, SIMD<int32_t>::Type c) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_ADDMUL(a, b, c);
 # undef PARALLILOS_I32_ADDMUL
   }
 
-  template <>
   PARALLILOS_INLINE auto simd_submul(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b, SIMD<int32_t>::Type c) -> SIMD<int32_t>::Type
   {
     return PARALLILOS_I32_SUBMUL(a, b, c);
 # undef PARALLILOS_I32_SUBMUL
+  }
+
+  PARALLILOS_INLINE auto simd_eq(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Mask
+  {
+    return PARALLILOS_I32_EQ(a, b);
+# undef PARALLILOS_I32_EQ
+  }
+
+  PARALLILOS_INLINE auto simd_neq(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Mask
+  {
+    return PARALLILOS_I32_NEQ(a, b);
+# undef PARALLILOS_I32_NEQ
+  }
+
+  PARALLILOS_INLINE auto simd_gt(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Mask
+  {
+    return PARALLILOS_I32_GT(a, b);
+#   undef PARALLILOS_I32_GT
+  }
+
+  PARALLILOS_INLINE auto simd_gte(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Mask
+  {
+    return PARALLILOS_I32_GTE(a, b);
+# undef PARALLILOS_I32_GTE
+  }
+
+  PARALLILOS_INLINE auto simd_lt(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Mask
+  {
+    return PARALLILOS_I32_LT(a, b);
+#   undef PARALLILOS_I32_LT
+  }
+
+  PARALLILOS_INLINE auto simd_lte(SIMD<int32_t>::Type a, SIMD<int32_t>::Type b) -> SIMD<int32_t>::Mask
+  {
+    return PARALLILOS_I32_LTE(a, b);
+# undef PARALLILOS_I32_LTE
   }
 #endif
 }
