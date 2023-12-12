@@ -56,41 +56,26 @@ facilitate generic parallelism.
 #endif
 // --Parallilos library-----------------------------------------------------------------------------
 #if defined(__GNUC__)
-# define PARALLILOS_COMPILER_SUPPORTS_SSE
-# define PARALLILOS_COMPILER_SUPPORTS_AVX
-# define PARALLILOS_COMPILER_SUPPORTS_NEON
 # define PARALLILOS_INLINE __attribute__((always_inline)) inline
 # if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
 #   define PARALLILOS_HAS_ALIGNED_ALLOC
 # endif
-// #elif defined(__clang__)
-// # define PARALLILOS_COMPILER_SUPPORTS_SSE
-// # define PARALLILOS_COMPILER_SUPPORTS_AVX
-// # define PARALLILOS_COMPILER_SUPPORTS_NEON
-// # define PARALLILOS_INLINE __attribute__((always_inline)) inline
-// # if (__cplusplus >= 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
-// #   define PARALLILOS_HAS_ALIGNED_ALLOC
-// # endif
-// #elif defined(__MINGW32__) || defined(__MINGW64__)
-// # define PARALLILOS_COMPILER_SUPPORTS_SSE
-// # define PARALLILOS_COMPILER_SUPPORTS_AVX
-// # define PARALLILOS_INLINE __attribute__((always_inline)) inline
-// #elif defined(__apple_build_version__)
-// # define PARALLILOS_COMPILER_SUPPORTS_SSE
-// # define PARALLILOS_COMPILER_SUPPORTS_AVX
-// # define PARALLILOS_INLINE __attribute__((always_inline)) inline
-// #elif defined(_MSC_VER)
-// # define PARALLILOS_COMPILER_SUPPORTS_SSE
-// # define PARALLILOS_COMPILER_SUPPORTS_AVX
-// # define PARALLILOS_INLINE __forceinline
-// #elif defined(__INTEL_COMPILER)
-// # define PARALLILOS_COMPILER_SUPPORTS_SSE
-// # define PARALLILOS_COMPILER_SUPPORTS_AVX
-// # define PARALLILOS_COMPILER_SUPPORTS_SVML
-// # define PARALLILOS_INLINE __forceinline
-// #elif defined(__ARMCC_VERSION)
-// # define PARALLILOS_COMPILER_SUPPORTS_NEON
-// # define PARALLILOS_INLINE __forceinline
+#elif defined(__clang__)
+# define PARALLILOS_INLINE __attribute__((always_inline)) inline
+# if (__cplusplus >= 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
+#   define PARALLILOS_HAS_ALIGNED_ALLOC
+# endif
+#elif defined(__MINGW32__) or defined(__MINGW64__)
+# define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#elif defined(__apple_build_version__)
+# define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#elif defined(_MSC_VER)
+# define PARALLILOS_INLINE __forceinline
+#elif defined(__INTEL_COMPILER)
+# define PARALLILOS_COMPILER_SUPPORTS_SVML
+# define PARALLILOS_INLINE __forceinline
+#elif defined(__ARMCC_VERSION)
+# define PARALLILOS_INLINE __forceinline
 #else
 # if __cplusplus >= 202302L
 #   warning "Parallilos: your compiler is not supported."
@@ -98,64 +83,55 @@ facilitate generic parallelism.
 # define PARALLILOS_INLINE inline
 #endif
 
-#if defined(PARALLILOS_COMPILER_SUPPORTS_AVX)
-# undef PARALLILOS_COMPILER_SUPPORTS_AVX
-# if defined(__AVX512F__)
-#   define PARALLILOS_AVX512F
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
-# if defined(__AVX2__)
-#   define PARALLILOS_AVX2
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
-# if defined(__FMA__)
-#   define PARALLILOS_FMA
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
-# if defined(__AVX__)
-#   define PARALLILOS_AVX
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
+#if defined(__AVX512F__)
+# define PARALLILOS_AVX512F
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
+#endif
+#if defined(__AVX2__)
+# define PARALLILOS_AVX2
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
+#endif
+#if defined(__FMA__)
+# define PARALLILOS_FMA
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
+#endif
+#if defined(__AVX__)
+# define PARALLILOS_AVX
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
 #endif
 
-#if defined(PARALLILOS_COMPILER_SUPPORTS_SSE)
-# undef PARALLILOS_COMPILER_SUPPORTS_SSE
-# if defined(__SSE4_2__)
-#   define PARALLILOS_SSE4_2
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
-# if defined(__SSE4_1__)
-#   define PARALLILOS_SSE4_1
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
-# if defined(__SSSE3__)
-#   define PARALLILOS_SSSE3
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
-# if defined(__SSE3__)
-#   define PARALLILOS_SSE3
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
-# if defined(__SSE2__)
-#   define PARALLILOS_SSE2
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
-# if defined(__SSE__)
-#   define PARALLILOS_SSE
-#   define PARALLILOS_SIMD_HEADER <immintrin.h>
-# endif
+#if defined(__SSE4_2__)
+# define PARALLILOS_SSE4_2
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
+#endif
+#if defined(__SSE4_1__)
+# define PARALLILOS_SSE4_1
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
+#endif
+#if defined(__SSSE3__)
+# define PARALLILOS_SSSE3
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
+#endif
+#if defined(__SSE3__)
+# define PARALLILOS_SSE3
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
+#endif
+#if defined(__SSE2__)
+# define PARALLILOS_SSE2
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
+#endif
+#if defined(__SSE__)
+# define PARALLILOS_SSE
+# define PARALLILOS_SIMD_HEADER <immintrin.h>
 #endif
 
-#if defined(PARALLILOS_COMPILER_SUPPORTS_NEON)
-# undef PARALLILOS_COMPILER_SUPPORTS_NEON
-# if defined(__ARM_NEON) or defined(__ARM_NEON__)
-#   if defined(__ARM_ARCH_64)
-#     define PARALLILOS_NEON64
-#     define PARALLILOS_SIMD_HEADER <arm64_neon.h>
-#   else
-#     define PARALLILOS_NEON
-#     define PARALLILOS_SIMD_HEADER <arm_neon.h>
-#   endif
+#if defined(__ARM_NEON) or defined(__ARM_NEON__)
+# if defined(__ARM_ARCH_64)
+#   define PARALLILOS_NEON64
+#   define PARALLILOS_SIMD_HEADER <arm64_neon.h>
+# else
+#   define PARALLILOS_NEON
+#   define PARALLILOS_SIMD_HEADER <arm_neon.h>
 # endif
 #endif
 
@@ -166,11 +142,6 @@ facilitate generic parallelism.
 # else
 #   include PARALLILOS_SIMD_HEADER
 # endif
-#endif
-
-#if defined(PARALLILOS_COMPILER_SUPPORTS_SVML)
-# undef PARALLILOS_COMPILER_SUPPORTS_SVML
-# define PARALLILOS_SVML
 #endif
 
 namespace Parallilos
