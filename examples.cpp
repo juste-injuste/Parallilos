@@ -4,22 +4,22 @@
 #include <array>
 #include <memory>
 
-#define PARALLILOS_WARNINGS
+#define PARALLILOS_LOGGING
 #include "include/Parallilos.hpp"
 
 template<typename T>
-void print_info(T* array, size_t n)
+void print_array(const Parallilos::Array<T>& array)
 {
   using namespace Parallilos;
 
-  for (size_t k = 0; k < n; ++k)
+  for (size_t k = 0; k < array.size(); ++k)
     std::cout << array[k] << ' ';
   std::cout << '\n';
   
   std::cout << "Instruction set:          " << SIMD<T>::set  << '\n';
   std::cout << "Data per parallel passes: " << SIMD<T>::size << '\n';
-  std::cout << "Parallel passes:          " << SIMD<T>::parallel(n).passes   << '\n';
-  std::cout << "Sequential passes:        " << SIMD<T>::sequential(n).passes << '\n';
+  std::cout << "Parallel passes:          " << SIMD<T>::parallel(array.size()).passes   << '\n';
+  std::cout << "Sequential passes:        " << SIMD<T>::sequential(array.size()).passes << '\n';
 }
 
 int main()
@@ -46,12 +46,12 @@ int main()
   }
   
   // display result array
-  print_info(c.data(), n);
+  print_array(c);
 
-  SIMD<double>::Type  v1 = simd_setval<double>(1);
-  SIMD<char>::Type    v2 = simd_setval<char>('2');
-  SIMD<int32_t>::Type v3 = simd_setval<int32_t>(3);
-  SIMD<float>::Type   v4 = simd_setval<float>(4);
+  auto v1 = simd_setval<double>(1);
+  auto v2 = simd_setval<char>('2');
+  auto v3 = simd_setval<int32_t>(3);
+  auto v4 = simd_setval<float>(4);
 
   auto m1 = simd_gt(v1, v1);
   auto m2 = simd_gt(v2, v2);
