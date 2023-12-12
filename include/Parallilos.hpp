@@ -529,26 +529,23 @@ namespace Parallilos
     size_t numel;
   };
 
-  namespace Backend
-  {
-    // T = type, V = vector type, M = mask type, A = alignment, S = sets used
-    #define PARALLILOS_MAKE_SIMD_SPECIALIZATION(T, V, M, A, S)                                \
-      template<>                                                                              \
-      class SIMD<T>                                                                           \
-      {                                                                                       \
-      static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type"); \
-      public:                                                                                 \
-        static constexpr size_t size      = sizeof(V)/sizeof(T);                              \
-        static constexpr size_t alignment = A;                                                \
-        using Type = V;                                                                       \
-        using Mask = M;                                                                       \
-        static constexpr const char* set = S;                                                 \
-        static inline Backend::Parallel<size> parallel(const size_t n_elements) noexcept      \
-        { return Backend::Parallel<size>{n_elements}; }                                       \
-        static inline Backend::Sequential<size> sequential(const size_t n_elements) noexcept  \
-        { return Backend::Sequential<size>{n_elements}; }                                     \
-      };
-  }
+  // T = type, V = vector type, M = mask type, A = alignment, S = sets used
+# define PARALLILOS_MAKE_SIMD_SPECIALIZATION(T, V, M, A, S)                                \
+    template<>                                                                              \
+    class SIMD<T>                                                                           \
+    {                                                                                       \
+    static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type"); \
+    public:                                                                                 \
+      static constexpr size_t size      = sizeof(V)/sizeof(T);                              \
+      static constexpr size_t alignment = A;                                                \
+      using Type = V;                                                                       \
+      using Mask = M;                                                                       \
+      static constexpr const char* set = S;                                                 \
+      static inline Backend::Parallel<size> parallel(const size_t n_elements) noexcept      \
+      { return Backend::Parallel<size>{n_elements}; }                                       \
+      static inline Backend::Sequential<size> sequential(const size_t n_elements) noexcept  \
+      { return Backend::Sequential<size>{n_elements}; }                                     \
+    };
 
 #if defined(PARALLILOS_AVX512F)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
