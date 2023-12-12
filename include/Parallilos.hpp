@@ -172,7 +172,7 @@ namespace Parallilos
     class Parallel
     {
     public:
-      explicit Parallel(const size_t n_elements) noexcept :
+      Parallel(const size_t n_elements) noexcept :
         current_index{0},
         passes_left{size ? (n_elements / size) : 0}
       {}
@@ -192,7 +192,7 @@ namespace Parallilos
     class Sequential
     {
     public:
-      explicit Sequential(const size_t n_elements) noexcept :
+      Sequential(const size_t n_elements) noexcept :
         current_index{size ? ((n_elements / size) * size) : 0},
         passes_left{n_elements - current_index}
       {}
@@ -263,112 +263,14 @@ namespace Parallilos
     static constexpr const char* set = "no SIMD instruction set used for this type";
 
     static Backend::Parallel<size> parallel(const size_t n_elements) noexcept
-    { return Backend::Parallel<size>{n_elements}; }
+    {
+      return Backend::Parallel<size>{n_elements};
+    }
 
     static Backend::Sequential<size> sequential(const size_t n_elements) noexcept
-    { return Backend::Sequential<size>{n_elements}; }
-  };
-
-  template<typename T>
-  class Array final
-  {
-  static_assert(std::is_arithmetic<T>::value, "T in Array<T> must be an arithmetic type");
-  public:
-    const T* data(const size_t k = 0)   const noexcept { return array + k; }
-    T*       data(const size_t k = 0)         noexcept { return array + k; }
-    size_t   size()                     const noexcept { return numel; }
-    T        operator[](const size_t k) const noexcept { return array[k]; }
-    T&       operator[](const size_t k)       noexcept { return array[k]; }
-    operator T*()                             noexcept { return array; }
-
-    // interpret aligned array as a vector, k is an offset in elements into the array
-    typename SIMD<T>::Type& as_vector(const size_t k) noexcept
-    { return (typename SIMD<T>::Type&)(array[k]); }
-
-    Array(const size_t number_of_elements) noexcept :
-      array([number_of_elements]() -> T* {
-        if ((number_of_elements == 0))
-        {
-          return nullptr;
-        }
-
-        if (SIMD<T>::alignment == 0)
-        {
-          return reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T)));
-        }
-#     if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
-        else
-        {
-          return reinterpret_cast<T*>(std::aligned_alloc(SIMD<T>::alignment, number_of_elements * sizeof(T)));
-        }
-#     else
-
-        void* memory_block = std::malloc(number_of_elements * sizeof(T) + SIMD<T>::alignment);
-
-        if (memory_block == nullptr)
-        {
-          return nullptr;
-        }
-
-        // align on alignement boundary
-        auto  aligned_address      = (reinterpret_cast<uintptr_t>(memory_block) + SIMD<T>::alignment) & ~(SIMD<T>::alignment - 1);
-        void* aligned_memory_block = reinterpret_cast<void*>(aligned_address);
-
-        // bookkeeping of original memory block
-        reinterpret_cast<void**>(aligned_memory_block)[-1] = memory_block;
-
-        return reinterpret_cast<T*>(aligned_memory_block);
-#     endif
-      }()),
-      numel(array == nullptr ? 0 : number_of_elements)
     {
-      PARALLILOS_LOG("created array of size %u", unsigned(numel));
+      return Backend::Sequential<size>{n_elements};
     }
-
-    Array(const std::initializer_list<T> initializer_list) noexcept :
-      Array(initializer_list.size())
-    {
-      if (numel != 0)
-      {
-        size_t k = 0;
-        for (T value : initializer_list)
-        {
-          array[k++] = value;
-        }
-      }
-    }
-    
-    Array(Array&& other) noexcept :
-      array(other.array),
-      numel(other.numel)
-    {
-      PARALLILOS_LOG("moved array of size %u", unsigned(numel));
-      other.array = nullptr;
-      other.numel = 0;
-    }
-
-    Array(const Array&) = delete; // copying is disallowed
-
-    ~Array()
-    {
-#   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
-      std::free(array);
-#   else
-      if (array != nullptr)
-      {
-        if (SIMD<T>::alignment != 0)
-        {
-          std::free(reinterpret_cast<void**>(array)[-1]);
-        }
-        else std::free(array);
-      }
-#   endif
-      PARALLILOS_LOG("freed used memory");
-      return;
-    }
-  private:
-    T*     array;
-    size_t numel;
   };
 
   // load a vector from unaligned data
@@ -522,6 +424,110 @@ namespace Parallilos
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", Backend::type_name<V>().c_str());
     return a <= b;
   }
+
+  template<typename T>
+  class Array final
+  {
+  static_assert(std::is_arithmetic<T>::value, "T in Array<T> must be an arithmetic type");
+  public:
+    const T* data(const size_t k = 0)   const noexcept { return array + k; }
+    T*       data(const size_t k = 0)         noexcept { return array + k; }
+    size_t   size()                     const noexcept { return numel; }
+    T        operator[](const size_t k) const noexcept { return array[k]; }
+    T&       operator[](const size_t k)       noexcept { return array[k]; }
+    operator T*()                             noexcept { return array; }
+
+    Array(const size_t number_of_elements) noexcept :
+      array([number_of_elements]() -> T* {
+        if ((number_of_elements == 0))
+        {
+          return nullptr;
+        }
+
+        if (SIMD<T>::alignment == 0)
+        {
+          return reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T)));
+        }
+#     if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
+        else
+        {
+          return reinterpret_cast<T*>(std::aligned_alloc(SIMD<T>::alignment, number_of_elements * sizeof(T)));
+        }
+#     else
+
+        void* memory_block = std::malloc(number_of_elements * sizeof(T) + SIMD<T>::alignment);
+
+        if (memory_block == nullptr)
+        {
+          return nullptr;
+        }
+
+        // align on alignement boundary
+        auto  aligned_address      = (reinterpret_cast<uintptr_t>(memory_block) + SIMD<T>::alignment) & ~(SIMD<T>::alignment - 1);
+        void* aligned_memory_block = reinterpret_cast<void*>(aligned_address);
+
+        // bookkeeping of original memory block
+        reinterpret_cast<void**>(aligned_memory_block)[-1] = memory_block;
+
+        return reinterpret_cast<T*>(aligned_memory_block);
+#     endif
+      }()),
+      numel(array == nullptr ? 0 : number_of_elements)
+    {
+      PARALLILOS_LOG("created array of size %u", unsigned(numel));
+    }
+
+    Array(const std::initializer_list<T> initializer_list) noexcept :
+      Array(initializer_list.size())
+    {
+      if (numel != 0)
+      {
+        size_t k = 0;
+        for (T value : initializer_list)
+        {
+          array[k++] = value;
+        }
+      }
+    }
+    
+    Array(Array&& other) noexcept :
+      array(other.array),
+      numel(other.numel)
+    {
+      PARALLILOS_LOG("moved array of size %u", unsigned(numel));
+      other.array = nullptr;
+      other.numel = 0;
+    }
+
+    Array(const Array&) = delete; // copying is disallowed
+
+    ~Array()
+    {
+#   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
+      std::free(array);
+#   else
+      if (array != nullptr)
+      {
+        if (SIMD<T>::alignment != 0)
+        {
+          std::free(reinterpret_cast<void**>(array)[-1]);
+        }
+        else std::free(array);
+      }
+#   endif
+      PARALLILOS_LOG("freed used memory");
+      return;
+    }
+
+    // interpret aligned array as a vector, k is an offset in elements into the array
+    typename SIMD<T>::Type& as_vector(const size_t k) noexcept
+    {
+      return reinterpret_cast<typename SIMD<T>::Type&>(array[k]);
+    }
+  private:
+    T*     array;
+    size_t numel;
+  };
 
   namespace Backend
   {
