@@ -209,7 +209,7 @@ namespace Parallilos
     };
 
 # if defined(PARALLILOS_LOGGING)
-    template<typename T>
+    template<typename T> inline
     std::string type_name()
     {
       if (std::is_floating_point<T>::value)
@@ -230,6 +230,7 @@ namespace Parallilos
       return "int" + std::to_string(sizeof(T) * 8);
     }
 
+    inline
     void log(const char* caller, const char* message)
     {
 #   if defined(__STDCPP_THREADS__)
@@ -248,6 +249,9 @@ namespace Parallilos
 # else
 #   define PARALLILOS_LOG(...) void(0)
 # endif
+
+    template<typename T>
+    using if_integral = typename std::enable_if<std::is_integral<T>::value>::type;
   }
 
   // base case for types that are not supported
@@ -428,64 +432,57 @@ namespace Parallilos
   }
 
   // ![a]
-  template<typename V> PARALLILOS_INLINE
+  template<typename V, typename = Backend::if_integral<V>> PARALLILOS_INLINE
   V simd_bw_not(V a) noexcept
   {
-    static_assert(not std::is_integral<V>::value, "simd_bw_not: V must be an integral type");
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", Backend::type_name<V>().c_str());
     return !a;
   }
 
   // [a] & [b]
-  template<typename V> PARALLILOS_INLINE
+  template<typename V, typename = Backend::if_integral<V>> PARALLILOS_INLINE
   V simd_bw_and(V a, V b) noexcept
   {
-    static_assert(not std::is_integral<V>::value, "simd_bw_and: V must be an integral type");
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", Backend::type_name<V>().c_str());
     return a & b;
   }
 
   // !([a] & [b])
-  template<typename V> PARALLILOS_INLINE
+  template<typename V, typename = Backend::if_integral<V>> PARALLILOS_INLINE
   V simd_bw_nand(V a, V b) noexcept
   {
-    static_assert(not std::is_integral<V>::value, "simd_bw_nand: V must be an integral type");
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", Backend::type_name<V>().c_str());
     return !(a & b);
   }
 
   // [a] | [b]
-  template<typename V> PARALLILOS_INLINE
+  template<typename V, typename = Backend::if_integral<V>> PARALLILOS_INLINE
   V simd_bw_or(V a, V b) noexcept
   {
-    static_assert(not std::is_integral<V>::value, "simd_bw_or: V must be an integral type");
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", Backend::type_name<V>().c_str());
     return a | b;
   }
 
   // !([a] | [b])
-  template<typename V> PARALLILOS_INLINE
+  template<typename V, typename = Backend::if_integral<V>> PARALLILOS_INLINE
   V simd_bw_nor(V a, V b) noexcept
   {
-    static_assert(not std::is_integral<V>::value, "simd_bw_nor: V must be an integral type");
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", Backend::type_name<V>().c_str());
     return !(a | b);
   }
 
   // [a] ^ [b]
-  template<typename V> PARALLILOS_INLINE
+  template<typename V, typename = Backend::if_integral<V>> PARALLILOS_INLINE
   V simd_bw_xor(V a, V b) noexcept
   {
-    static_assert(not std::is_integral<V>::value, "simd_bw_xor: V must be an integral type");
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", Backend::type_name<V>().c_str());
     return a ^ b;
   }
 
   // !([a] ^ [b])
-  template<typename V> PARALLILOS_INLINE
+  template<typename V, typename = Backend::if_integral<V>> PARALLILOS_INLINE
   V simd_bw_xnor(V a, V b) noexcept
   {
-    static_assert(not std::is_integral<V>::value, "simd_bw_xnor: V must be an integral type");
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", Backend::type_name<V>().c_str());
     return !(a ^ b);
   }
