@@ -122,15 +122,15 @@ facilitate generic parallelism.
 # define PARALLILOS_SIMD_HEADER <immintrin.h>
 #endif
 
-#if defined(__ARM_NEON) or defined(__ARM_NEON__)
-# if defined(__ARM_ARCH_64)
+// #if defined(__ARM_NEON) or defined(__ARM_NEON__)
+// # if defined(__ARM_ARCH_64)
 // #   define PARALLILOS_NEON64
 // #   define PARALLILOS_SIMD_HEADER <arm64_neon.h>
-# else
+// # else
 // #   define PARALLILOS_NEON
 // #   define PARALLILOS_SIMD_HEADER <arm_neon.h>
-# endif
-#endif
+// # endif
+// #endif
 
 #if defined(PARALLILOS_SIMD_HEADER)
 # if not defined(__OPTIMIZE__)
@@ -718,31 +718,31 @@ namespace Parallilos
 # define PARALLILOS_F32_LT(a, b)              _mm_cmplt_ps(a, b)
 # define PARALLILOS_F32_LTE(a, b)             _mm_cmple_ps(a, b)
 # define PARALLILOS_F32_ABS(a)                _mm_andnot_ps(_mm_set1_ps(-0.0f), a)
-#elif defined(PARALLILOS_NEON) or defined(PARALLILOS_NEON64)
-  static_assert(sizeof(float) == 4, "float must be 32 bit");
-# define PARALLILOS_F32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(float, float32x4_t, uint32x4_t, 0, "NEON");
-# define PARALLILOS_F32_LOADU(data)           vld1q_f32(data)
-# define PARALLILOS_F32_LOADA(data)           vld1q_f32(data)
-# define PARALLILOS_F32_STOREU(addr, data)    vst1q_f32(addr, data)
-# define PARALLILOS_F32_STOREA(addr, data)    vst1q_f32(addr, data)
-# define PARALLILOS_F32_SETVAL(Talue)         vdupq_n_f32(Talue)
-# define PARALLILOS_F32_SETZERO()             vdupq_n_f32(0.0f)
-# define PARALLILOS_F32_MUL(a, b)             vmulq_f32(a, b)
-# define PARALLILOS_F32_ADD(a, b)             vaddq_f32(a, b)
-# define PARALLILOS_F32_SUB(a, b)             vsubq_f32(a, b)
-# define PARALLILOS_F32_DIV(a, b)             vdivq_f32(a, b)
-# define PARALLILOS_F32_SQRT(a)               vsqrtq_f32(a)
-# define PARALLILOS_F32_ADDMUL(a, b, c)       vmlaq_f32(a, b, c)
-# define PARALLILOS_F32_SUBMUL(a, b, c)       vmlsq_f32(a, b, c)
-# define PARALLILOS_F32_EQ(a, b)              vceqq_f32(a, b)
-# define PARALLILOS_F32_NEQ(a, b)             vmvnq_u32(Tceqq_f32(a, b))
-# define PARALLILOS_F32_GT(a, b)              vcgtq_f32(a, b)
-# define PARALLILOS_F32_GTE(a, b)             vcgeq_f32(a, b)
-# define PARALLILOS_F32_LT(a, b)              vcltq_f32(a, b)
-# define PARALLILOS_F32_LTE(a, b)             vcleq_f32(a, b)
+// #elif defined(PARALLILOS_NEON) or defined(PARALLILOS_NEON64)
+//   static_assert(sizeof(float) == 4, "float must be 32 bit");
+// # define PARALLILOS_F32
+//   PARALLILOS_MAKE_SIMD_SPECIALIZATION(float, float32x4_t, uint32x4_t, 0, "NEON");
+// # define PARALLILOS_F32_LOADU(data)           vld1q_f32(data)
+// # define PARALLILOS_F32_LOADA(data)           vld1q_f32(data)
+// # define PARALLILOS_F32_STOREU(addr, data)    vst1q_f32(addr, data)
+// # define PARALLILOS_F32_STOREA(addr, data)    vst1q_f32(addr, data)
+// # define PARALLILOS_F32_SETVAL(Talue)         vdupq_n_f32(Talue)
+// # define PARALLILOS_F32_SETZERO()             vdupq_n_f32(0.0f)
+// # define PARALLILOS_F32_MUL(a, b)             vmulq_f32(a, b)
+// # define PARALLILOS_F32_ADD(a, b)             vaddq_f32(a, b)
+// # define PARALLILOS_F32_SUB(a, b)             vsubq_f32(a, b)
+// # define PARALLILOS_F32_DIV(a, b)             vdivq_f32(a, b)
+// # define PARALLILOS_F32_SQRT(a)               vsqrtq_f32(a)
+// # define PARALLILOS_F32_ADDMUL(a, b, c)       vmlaq_f32(a, b, c)
+// # define PARALLILOS_F32_SUBMUL(a, b, c)       vmlsq_f32(a, b, c)
+// # define PARALLILOS_F32_EQ(a, b)              vceqq_f32(a, b)
+// # define PARALLILOS_F32_NEQ(a, b)             vmvnq_u32(Tceqq_f32(a, b))
+// # define PARALLILOS_F32_GT(a, b)              vcgtq_f32(a, b)
+// # define PARALLILOS_F32_GTE(a, b)             vcgeq_f32(a, b)
+// # define PARALLILOS_F32_LT(a, b)              vcltq_f32(a, b)
+// # define PARALLILOS_F32_LTE(a, b)             vcleq_f32(a, b)
 
-# define PARALLILOS_F32_ABS(a)                vabsq_f32(a)
+// # define PARALLILOS_F32_ABS(a)                vabsq_f32(a)
 #endif
 
 #ifdef PARALLILOS_F32
@@ -1022,31 +1022,31 @@ namespace Parallilos
 # define PARALLILOS_F64_LTE(a, b)             _mm_cmple_pd(a, b)
 
 # define PARALLILOS_F64_ABS(a)                _mm_andnot_pd(_mm_set1_pd(-0.0), a)
-#elif defined(PARALLILOS_NEON) or defined(PARALLILOS_NEON64)
-# define PARALLILOS_F64
-  static_assert(sizeof(double) == 8, "float must be 64 bit");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(double, float64x4_t, float64x4_t, 0, "NEON");
-# define PARALLILOS_F64_LOADU(data)           vld1q_f64(data)
-# define PARALLILOS_F64_LOADA(data)           vld1q_f64(data)
-# define PARALLILOS_F64_STOREU(addr, data)    vst1q_f64(addr, data)
-# define PARALLILOS_F64_STOREA(addr, data)    vst1q_f64(addr, data)
-# define PARALLILOS_F64_SETVAL(Talue)         vdupq_n_f64(Talue)
-# define PARALLILOS_F64_SETZERO()             vdupq_n_f64(0.0)
-# define PARALLILOS_F64_MUL(a, b)             vmulq_f64(a, b)
-# define PARALLILOS_F64_ADD(a, b)             vaddq_f64(a, b)
-# define PARALLILOS_F64_SUB(a, b)             vsubq_f64(a, b)
-# define PARALLILOS_F64_DIV(a, b)             vdivq_f64(a, b)
-# define PARALLILOS_F64_SQRT(a)               vsqrtq_f64(a)
-# define PARALLILOS_F64_ADDMUL(a, b, c)       vmlaq_f64(a, b, c)
-# define PARALLILOS_F64_SUBMUL(a, b, c)       vmlsq_f64(a, b, c)
-# define PARALLILOS_F32_EQ(a, b)              vceqq_f64(a, b)
-# define PARALLILOS_F32_NEQ(a, b)             vmvnq_u64(Tceqq_f64(a, b))
-# define PARALLILOS_F32_GT(a, b)              vcgtq_f64(a, b)
-# define PARALLILOS_F32_GTE(a, b)             vcgeq_f64(a, b)
-# define PARALLILOS_F32_LT(a, b)              vcltq_f64(a, b)
-# define PARALLILOS_F32_LTE(a, b)             vcleq_f64(a, b)
+// #elif defined(PARALLILOS_NEON) or defined(PARALLILOS_NEON64)
+// # define PARALLILOS_F64
+//   static_assert(sizeof(double) == 8, "float must be 64 bit");
+//   PARALLILOS_MAKE_SIMD_SPECIALIZATION(double, float64x4_t, float64x4_t, 0, "NEON");
+// # define PARALLILOS_F64_LOADU(data)           vld1q_f64(data)
+// # define PARALLILOS_F64_LOADA(data)           vld1q_f64(data)
+// # define PARALLILOS_F64_STOREU(addr, data)    vst1q_f64(addr, data)
+// # define PARALLILOS_F64_STOREA(addr, data)    vst1q_f64(addr, data)
+// # define PARALLILOS_F64_SETVAL(Talue)         vdupq_n_f64(Talue)
+// # define PARALLILOS_F64_SETZERO()             vdupq_n_f64(0.0)
+// # define PARALLILOS_F64_MUL(a, b)             vmulq_f64(a, b)
+// # define PARALLILOS_F64_ADD(a, b)             vaddq_f64(a, b)
+// # define PARALLILOS_F64_SUB(a, b)             vsubq_f64(a, b)
+// # define PARALLILOS_F64_DIV(a, b)             vdivq_f64(a, b)
+// # define PARALLILOS_F64_SQRT(a)               vsqrtq_f64(a)
+// # define PARALLILOS_F64_ADDMUL(a, b, c)       vmlaq_f64(a, b, c)
+// # define PARALLILOS_F64_SUBMUL(a, b, c)       vmlsq_f64(a, b, c)
+// # define PARALLILOS_F32_EQ(a, b)              vceqq_f64(a, b)
+// # define PARALLILOS_F32_NEQ(a, b)             vmvnq_u64(Tceqq_f64(a, b))
+// # define PARALLILOS_F32_GT(a, b)              vcgtq_f64(a, b)
+// # define PARALLILOS_F32_GTE(a, b)             vcgeq_f64(a, b)
+// # define PARALLILOS_F32_LT(a, b)              vcltq_f64(a, b)
+// # define PARALLILOS_F32_LTE(a, b)             vcleq_f64(a, b)
 
-# define PARALLILOS_F32_ABS(a)                vabsq_f64(a)
+// # define PARALLILOS_F32_ABS(a)                vabsq_f64(a)
 #endif
 
 #ifdef PARALLILOS_F64
