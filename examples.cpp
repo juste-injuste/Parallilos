@@ -72,8 +72,8 @@ int main()
   // std::cout << simd_mul(a, b) << '\n'; // prints " 2   2   ...  2"
   // std::cout << simd_div(a, b) << '\n'; // prints " 0.5 0.5 ...  0.5"
 
-  auto a = simd_setval(2.0f);
-  auto b = simd_setval(-2.0f);
-  std::cout << a << " -> " << simd_abs(a) << '\n';
-  std::cout << b << " -> " << simd_abs(b) << '\n';
+  // auto a = simd_setval(2.0f);
+  // auto b = simd_setval(-2.0f);
+  // std::cout << a << " -> " << simd_abs(a) << '\n';
+  // std::cout << b << " -> " << simd_abs(b) << '\n';
 }
