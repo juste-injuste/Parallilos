@@ -1,10 +1,10 @@
-/*---author-----------------------------------------------------------------------------------------
+/*---author-------------------------------------------------------------------------------------------------------------
 
 Justin Asselin (juste-injuste)
 justin.asselin@usherbrooke.ca
 https://github.com/juste-injuste/Parallilos
 
------licence----------------------------------------------------------------------------------------
+-----licence------------------------------------------------------------------------------------------------------------
 
 MIT License
 
@@ -28,15 +28,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
------description------------------------------------------------------------------------------------
+-----description--------------------------------------------------------------------------------------------------------
 
 Parallilos is a simple and lightweight C++11 (and newer) library that abstracts away SIMD usage to
 facilitate generic parallelism.
 
------inclusion guard------------------------------------------------------------------------------*/
+-----inclusion guard--------------------------------------------------------------------------------------------------*/
 #ifndef PARALLILOS_HPP
 #define PARALLILOS_HPP
-// --necessary standard libraries-------------------------------------------------------------------
+// --necessary standard libraries---------------------------------------------------------------------------------------
 #include <cstddef>      // for size_t
 #include <cstdint>      // for fixed-sized integers
 #include <cmath>        // for std::sqrt
@@ -44,7 +44,7 @@ facilitate generic parallelism.
 #include <ostream>      // for std::ostream
 #include <iostream>     // for std::cerr
 #include <type_traits>  // for std::is_arithmetic, std::is_integral, std::enable_if
-// --supplementary standard libraries---------------------------------------------------------------
+// --supplementary standard libraries-----------------------------------------------------------------------------------
 #if defined(PARALLILOS_LOGGING)
 #if defined(__STDCPP_THREADS__)
 # include <mutex>     // for std::mutex, std::lock_guard
@@ -54,7 +54,7 @@ facilitate generic parallelism.
 # include <typeinfo>    // for typeid
 # include <cstdio>      // for std::sprintf
 #endif
-// --Parallilos library-----------------------------------------------------------------------------
+// --Parallilos library-------------------------------------------------------------------------------------------------
 #if defined(__GNUC__)
 # define PARALLILOS_INLINE __attribute__((always_inline)) inline
 # if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
@@ -143,6 +143,7 @@ facilitate generic parallelism.
 
 namespace Parallilos
 {
+// ---------------------------------------------------------------------------------------------------------------------
   template<typename T>
   class SIMD;
 
@@ -162,7 +163,7 @@ namespace Parallilos
     std::ostream wrn{std::cerr.rdbuf()}; // warning ostream
     std::ostream log{std::clog.rdbuf()}; // logging ostream
   }
-
+// ---------------------------------------------------------------------------------------------------------------------
   namespace _backend
   {
     template<size_t size>
@@ -249,7 +250,19 @@ namespace Parallilos
 
     template<typename T>
     using _if_integral = typename std::enable_if<std::is_integral<T>::value>::type;
+
+# if defined(__GNUC__) and (__GNUC__ >= 9)
+#   define PARALLILOS_UNLIKELY [[unlikely]]
+#   define PARALLILOS_LIKELY   [[likely]]
+# elif defined(__clang__) and (__clang_major__ >= 9)
+#   define PARALLILOS_UNLIKELY [[unlikely]]
+#   define PARALLILOS_LIKELY   [[likely]]
+# else
+#   define PARALLILOS_UNLIKELY
+#   define PARALLILOS_LIKELY
+# endif
   }
+// ---------------------------------------------------------------------------------------------------------------------
 
   // base case for types that are not supported
   template<typename T>
@@ -516,12 +529,12 @@ namespace Parallilos
 
     Array(const size_t number_of_elements) noexcept :
       array([number_of_elements]() -> T* {
-        if ((number_of_elements == 0))
+        if ((number_of_elements == 0)) PARALLILOS_UNLIKELY
         {
           return nullptr;
         }
 
-        if (SIMD<T>::alignment == 0)
+        if (SIMD<T>::alignment == 0) PARALLILOS_UNLIKELY
         {
           return reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T)));
         }
@@ -531,7 +544,7 @@ namespace Parallilos
 #     else
         void* memory_block = std::malloc(number_of_elements * sizeof(T) + SIMD<T>::alignment);
 
-        if (memory_block == nullptr)
+        if (memory_block == nullptr) PARALLILOS_UNLIKELY
         {
           return nullptr;
         }
@@ -554,7 +567,7 @@ namespace Parallilos
     Array(const std::initializer_list<T> initializer_list) noexcept :
       Array(initializer_list.size())
     {
-      if (numel != 0)
+      if (numel != 0) PARALLILOS_LIKELY
       {
         size_t k = 0;
         for (T value : initializer_list)
@@ -577,12 +590,12 @@ namespace Parallilos
 
     ~Array()
     {
-      if (array != nullptr)
+      if (array != nullptr) PARALLILOS_LIKELY
       {
 #   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
         std::free(array);
 #   else
-        if (SIMD<T>::alignment != 0)
+        if (SIMD<T>::alignment != 0) PARALLILOS_LIKELY
         {
           std::free(reinterpret_cast<void**>(array)[-1]);
         }
@@ -620,7 +633,7 @@ namespace Parallilos
       { return _backend::_sequential<size>{n_elements}; }                                    \
       SIMD() = delete;                                                                       \
     };
-
+// ---------------------------------------------------------------------------------------------------------------------
 #if defined(PARALLILOS_AVX512F)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
 # define PARALLILOS_F32
@@ -910,7 +923,7 @@ namespace Parallilos
   {
     for (unsigned k = 0; k < SIMD<float>::size; ++k)
     {
-      if (k != 0)
+      if (k != 0) PARALLILOS_LIKELY
       {
         ostream << ' ';
       }
@@ -1214,7 +1227,7 @@ namespace Parallilos
   {
     for (unsigned k = 0; k < SIMD<double>::size; ++k)
     {
-      if (k != 0)
+      if (k != 0) PARALLILOS_LIKELY
       {
         ostream << ' ';
       }
@@ -1670,7 +1683,7 @@ namespace Parallilos
   {
     for (unsigned k = 0; k < SIMD<int32_t>::size; ++k)
     {
-      if (k != 0)
+      if (k != 0) PARALLILOS_LIKELY
       {
         ostream << ' ';
       }
