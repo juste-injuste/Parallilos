@@ -252,14 +252,14 @@ namespace Parallilos
     using _if_integral = typename std::enable_if<std::is_integral<T>::value>::type;
 
 # if defined(__GNUC__) and (__GNUC__ >= 9)
-#   define PARALLILOS_UNLIKELY [[unlikely]]
-#   define PARALLILOS_LIKELY   [[likely]]
+#   define PARALLILOS_COLD [[unlikely]]
+#   define PARALLILOS_HOT  [[likely]]
 # elif defined(__clang__) and (__clang_major__ >= 9)
-#   define PARALLILOS_UNLIKELY [[unlikely]]
-#   define PARALLILOS_LIKELY   [[likely]]
+#   define PARALLILOS_COLD [[unlikely]]
+#   define PARALLILOS_HOT  [[likely]]
 # else
-#   define PARALLILOS_UNLIKELY
-#   define PARALLILOS_LIKELY
+#   define PARALLILOS_COLD
+#   define PARALLILOS_HOT
 # endif
   }
 // ---------------------------------------------------------------------------------------------------------------------
@@ -529,12 +529,12 @@ namespace Parallilos
 
     Array(const size_t number_of_elements) noexcept :
       array([number_of_elements]() -> T* {
-        if ((number_of_elements == 0)) PARALLILOS_UNLIKELY
+        if ((number_of_elements == 0)) PARALLILOS_COLD
         {
           return nullptr;
         }
 
-        if (SIMD<T>::alignment == 0) PARALLILOS_UNLIKELY
+        if (SIMD<T>::alignment == 0) PARALLILOS_COLD
         {
           return reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T)));
         }
@@ -544,7 +544,7 @@ namespace Parallilos
 #     else
         void* memory_block = std::malloc(number_of_elements * sizeof(T) + SIMD<T>::alignment);
 
-        if (memory_block == nullptr) PARALLILOS_UNLIKELY
+        if (memory_block == nullptr) PARALLILOS_COLD
         {
           return nullptr;
         }
@@ -567,7 +567,7 @@ namespace Parallilos
     Array(const std::initializer_list<T> initializer_list) noexcept :
       Array(initializer_list.size())
     {
-      if (numel != 0) PARALLILOS_LIKELY
+      if (numel != 0) PARALLILOS_HOT
       {
         size_t k = 0;
         for (T value : initializer_list)
@@ -590,12 +590,12 @@ namespace Parallilos
 
     ~Array()
     {
-      if (array != nullptr) PARALLILOS_LIKELY
+      if (array != nullptr) PARALLILOS_HOT
       {
 #   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
         std::free(array);
 #   else
-        if (SIMD<T>::alignment != 0) PARALLILOS_LIKELY
+        if (SIMD<T>::alignment != 0) PARALLILOS_HOT
         {
           std::free(reinterpret_cast<void**>(array)[-1]);
         }
@@ -923,7 +923,7 @@ namespace Parallilos
   {
     for (unsigned k = 0; k < SIMD<float>::size; ++k)
     {
-      if (k != 0) PARALLILOS_LIKELY
+      if (k != 0) PARALLILOS_HOT
       {
         ostream << ' ';
       }
@@ -1227,7 +1227,7 @@ namespace Parallilos
   {
     for (unsigned k = 0; k < SIMD<double>::size; ++k)
     {
-      if (k != 0) PARALLILOS_LIKELY
+      if (k != 0) PARALLILOS_HOT
       {
         ostream << ' ';
       }
@@ -1683,7 +1683,7 @@ namespace Parallilos
   {
     for (unsigned k = 0; k < SIMD<int32_t>::size; ++k)
     {
-      if (k != 0) PARALLILOS_LIKELY
+      if (k != 0) PARALLILOS_HOT
       {
         ostream << ' ';
       }
