@@ -47,7 +47,8 @@ facilitate generic parallelism.
 // --supplementary standard libraries-----------------------------------------------------------------------------------
 #if defined(PARALLILOS_LOGGING)
 #if defined(__STDCPP_THREADS__)
-# include <mutex>     // for std::mutex, std::lock_guard
+# define PARALLILOS_THREADSAFE
+# include <mutex>       // for std::mutex, std::lock_guard
 #endif
 # include <string>      // for std::string, std::to_string
 # include <type_traits> // for std::is_floating_point, std::is_unsigned, std::is_pointer, std::remove_pointer
@@ -55,31 +56,6 @@ facilitate generic parallelism.
 # include <cstdio>      // for std::sprintf
 #endif
 // --Parallilos library-------------------------------------------------------------------------------------------------
-#if defined(__GNUC__)
-# define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
-#   define PARALLILOS_HAS_ALIGNED_ALLOC
-# endif
-#elif defined(__clang__)
-# define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# if (__cplusplus >= 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
-#   define PARALLILOS_HAS_ALIGNED_ALLOC
-# endif
-#elif defined(__MINGW32__) or defined(__MINGW64__)
-# define PARALLILOS_INLINE __attribute__((always_inline)) inline
-#elif defined(__apple_build_version__)
-# define PARALLILOS_INLINE __attribute__((always_inline)) inline
-#elif defined(_MSC_VER)
-# define PARALLILOS_INLINE __forceinline
-#elif defined(__INTEL_COMPILER)
-# define PARALLILOS_SVML
-# define PARALLILOS_INLINE __forceinline
-#elif defined(__ARMCC_VERSION)
-# define PARALLILOS_INLINE __forceinline
-#else
-# define PARALLILOS_INLINE inline
-#endif
-
 #if defined(__AVX512F__)
 # define PARALLILOS_AVX512F
 # define PARALLILOS_SIMD_HEADER <immintrin.h>
@@ -143,13 +119,6 @@ facilitate generic parallelism.
 
 namespace Parallilos
 {
-// ---------------------------------------------------------------------------------------------------------------------
-  template<typename T>
-  class SIMD;
-
-  template<typename T>
-  class Array;
-
   namespace Version
   {
     constexpr long NUMBER = 000001000;
@@ -157,6 +126,12 @@ namespace Parallilos
     constexpr long MINOR  =    001   ;
     constexpr long PATCH  =       000;
   }
+  
+  template<typename T>
+  class SIMD;
+
+  template<typename T>
+  class Array;
 
   namespace Global
   {
@@ -166,6 +141,30 @@ namespace Parallilos
 // ---------------------------------------------------------------------------------------------------------------------
   namespace _backend
   {
+# if defined(__GNUC__)
+#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#   if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
+#     define PARALLILOS_HAS_ALIGNED_ALLOC
+#   endif
+# elif defined(__clang__)
+#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#   if (__cplusplus >= 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
+#     define PARALLILOS_HAS_ALIGNED_ALLOC
+#   endif
+# elif defined(__MINGW32__) or defined(__MINGW64__)
+#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+# elif defined(__apple_build_version__)
+#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+# elif defined(_MSC_VER)
+#   define PARALLILOS_INLINE __forceinline
+# elif defined(__INTEL_COMPILER)
+#   define PARALLILOS_SVML
+#   define PARALLILOS_INLINE __forceinline
+# elif defined(__ARMCC_VERSION)
+#   define PARALLILOS_INLINE __forceinline
+# else
+#   define PARALLILOS_INLINE inline
+# endif
     template<size_t size>
     class _parallel
     {
@@ -174,11 +173,11 @@ namespace Parallilos
         current_index{0},
         passes_left{size ? (n_elements / size) : 0}
       {}
-      size_t    operator*()                 noexcept {return current_index;}
-      void      operator++()                noexcept {--passes_left, current_index += size;}
-      bool      operator!=(const _parallel&) noexcept {return passes_left;}
-      _parallel& begin()                     noexcept {return *this;}
-      _parallel  end()                       noexcept {return _parallel{0};}
+      size_t     operator*()                  noexcept {return current_index;}
+      void       operator++()                 noexcept {--passes_left, current_index += size;}
+      bool       operator!=(const _parallel&) noexcept {return passes_left;}
+      _parallel& begin()                      noexcept {return *this;}
+      _parallel  end()                        noexcept {return _parallel{0};}
     private:
       size_t current_index;
       size_t passes_left;
@@ -194,11 +193,11 @@ namespace Parallilos
         current_index{size ? ((n_elements / size) * size) : 0},
         passes_left{n_elements - current_index}
       {}
-      size_t      operator*()                   noexcept {return current_index;}
-      void        operator++()                  noexcept {--passes_left, ++current_index;}
-      bool        operator!=(const _sequential&) noexcept {return passes_left;}
-      _sequential& begin()                       noexcept {return *this;}
-      _sequential  end()                         noexcept {return _sequential{0};}
+      size_t       operator*()                    noexcept {return current_index;}
+      void         operator++()                   noexcept {--passes_left, ++current_index;}
+      bool         operator!=(const _sequential&) noexcept {return passes_left;}
+      _sequential& begin()                        noexcept {return *this;}
+      _sequential  end()                          noexcept {return _sequential{0};}
     private:
       size_t current_index;
       size_t passes_left;
@@ -228,21 +227,21 @@ namespace Parallilos
       return "int" + std::to_string(sizeof(T) * 8);
     }
 
-    inline
-    void _log(const char* caller, const char* message)
-    {
-#   if defined(__STDCPP_THREADS__)
-      static std::mutex mtx;
-      std::lock_guard<std::mutex> lock{mtx};
-#   endif
-      Global::log << caller << ": " << message << std::endl;
-    }
+# if defined (PARALLILOS_THREADSAFE)
+    thread_local char _log_buffer[256];
+    std::mutex _log_mtx;
+#   define PARALLILOS_LOG_LOCK std::lock_guard<std::mutex> lock{_backend::_log_mtx}
+# else
+    char _log_buffer[256];
+#   define PARALLILOS_LOG_LOCK
+# endif
     
-#   define PARALLILOS_LOG(...)          \
-      [&](const char* caller){          \
-        static char buffer[255];        \
-        sprintf(buffer, __VA_ARGS__);   \
-        _backend::_log(caller, buffer); \
+#   define PARALLILOS_LOG(...)                       \
+      [&](const char* caller){                       \
+        sprintf(_backend::_log_buffer, __VA_ARGS__); \
+        PARALLILOS_LOG_LOCK;                         \
+        Global::log << caller << ": "                \
+        << _backend::_log_buffer << std::endl;       \
       }(__func__)
 # else
 #   define PARALLILOS_LOG(...) void(0)
@@ -254,7 +253,7 @@ namespace Parallilos
 # if defined(__GNUC__) and (__GNUC__ >= 9)
 #   define PARALLILOS_COLD [[unlikely]]
 #   define PARALLILOS_HOT  [[likely]]
-# elif defined(__clang__) and (__clang_major__ >= 9)
+# elif defined(__clang__) and (__clang_major__ >= 12)
 #   define PARALLILOS_COLD [[unlikely]]
 #   define PARALLILOS_HOT  [[likely]]
 # else
@@ -263,8 +262,6 @@ namespace Parallilos
 # endif
   }
 // ---------------------------------------------------------------------------------------------------------------------
-
-  // base case for types that are not supported
   template<typename T>
   class SIMD
   {
@@ -290,7 +287,7 @@ namespace Parallilos
   };
 
   // load a vector from unaligned data
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   typename SIMD<T>::Type simd_loadu(const T data[]) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -298,7 +295,7 @@ namespace Parallilos
   }
 
   // load a vector from aligned data
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   typename SIMD<T>::Type simd_loada(const T data[]) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -306,7 +303,7 @@ namespace Parallilos
   }
 
   // store a vector into unaligned memory
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   void simd_storeu(T addr[], const typename SIMD<T>::Type& data)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -314,7 +311,7 @@ namespace Parallilos
   }
 
   // store a vector into aligned memory
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   void simd_storea(T addr[], const typename SIMD<T>::Type& data)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -322,7 +319,7 @@ namespace Parallilos
   }
 
   // load a vector with zeros
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   typename SIMD<T>::Type simd_setzero() noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -330,7 +327,7 @@ namespace Parallilos
   }
 
   // load a vector with a specific value
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   typename SIMD<T>::Type simd_setval(const T value) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -338,7 +335,7 @@ namespace Parallilos
   }
 
   // [a] + [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   T simd_add(T a, T b)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -346,7 +343,7 @@ namespace Parallilos
   }
 
   // [a] * [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   T simd_mul(T a, T b)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -354,7 +351,7 @@ namespace Parallilos
   }
 
   // [a] - [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   T simd_sub(T a, T b)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -362,7 +359,7 @@ namespace Parallilos
   }
 
   // [a] / [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   T simd_div(T a, T b)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -370,7 +367,7 @@ namespace Parallilos
   }
 
   // sqrt([a])
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   T simd_sqrt(T a)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -378,7 +375,7 @@ namespace Parallilos
   }
 
   // [a] + ([b] * [c])
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   T simd_addmul(T a, T b, T c)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -386,7 +383,7 @@ namespace Parallilos
   }
 
   // [a] - ([b] * [c])
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   T simd_submul(T a, T b, T c)
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -394,7 +391,7 @@ namespace Parallilos
   }
 
   // [a] == [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   bool simd_eq(T a, T b) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -402,7 +399,7 @@ namespace Parallilos
   }
 
   // [a] != [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   bool simd_neq(T a, T b) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -410,7 +407,7 @@ namespace Parallilos
   }
 
   // [a] > [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   bool simd_gt(T a, T b) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -418,7 +415,7 @@ namespace Parallilos
   }
 
   // [a] >= [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   bool simd_gte(T a, T b) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -426,7 +423,7 @@ namespace Parallilos
   }
 
   // [a] < [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   bool simd_lt(T a, T b) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -434,7 +431,7 @@ namespace Parallilos
   }
 
   // [a] <= [b]
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   bool simd_lte(T a, T b) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -444,7 +441,7 @@ namespace Parallilos
   inline namespace Bitwise
   {
     // ![a]
-    template<typename T, typename = _backend::_if_integral<T>> PARALLILOS_INLINE
+    template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_not(T a) noexcept
     {
       PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -452,7 +449,7 @@ namespace Parallilos
     }
 
     // [a] & [b]
-    template<typename T, typename = _backend::_if_integral<T>> PARALLILOS_INLINE
+    template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_and(T a, T b) noexcept
     {
       PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -460,7 +457,7 @@ namespace Parallilos
     }
 
     // !([a] & [b])
-    template<typename T, typename = _backend::_if_integral<T>> PARALLILOS_INLINE
+    template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_nand(T a, T b) noexcept
     {
       PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -468,7 +465,7 @@ namespace Parallilos
     }
 
     // [a] | [b]
-    template<typename T, typename = _backend::_if_integral<T>> PARALLILOS_INLINE
+    template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_or(T a, T b) noexcept
     {
       PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -476,7 +473,7 @@ namespace Parallilos
     }
 
     // !([a] | [b])
-    template<typename T, typename = _backend::_if_integral<T>> PARALLILOS_INLINE
+    template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_nor(T a, T b) noexcept
     {
       PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -484,7 +481,7 @@ namespace Parallilos
     }
 
     // [a] ^ [b]
-    template<typename T, typename = _backend::_if_integral<T>> PARALLILOS_INLINE
+    template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_xor(T a, T b) noexcept
     {
       PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -492,7 +489,7 @@ namespace Parallilos
     }
 
     // !([a] ^ [b])
-    template<typename T, typename = _backend::_if_integral<T>> PARALLILOS_INLINE
+    template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_xnor(T a, T b) noexcept
     {
       PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -501,7 +498,7 @@ namespace Parallilos
   }
 
   // abs([a])
-  template<typename T> PARALLILOS_INLINE
+  template<typename T> inline
   T simd_abs(T a) noexcept
   {
     PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
@@ -614,26 +611,28 @@ namespace Parallilos
     T*     array;
     size_t numel;
   };
-
-  // T = type, V = vector type, M = mask type, A = alignment, S = sets used
-# define PARALLILOS_MAKE_SIMD_SPECIALIZATION(T, V, M, A, S)                                  \
-    template<>                                                                               \
-    class SIMD<T>                                                                            \
-    {                                                                                        \
-    static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type");  \
-    public:                                                                                  \
-      static constexpr size_t size      = sizeof(V)/sizeof(T);                               \
-      static constexpr size_t alignment = A;                                                 \
-      using Type = V;                                                                        \
-      using Mask = M;                                                                        \
-      static constexpr const char* set = S;                                                  \
-      static inline _backend::_parallel<size> parallel(const size_t n_elements) noexcept     \
-      { return _backend::_parallel<size>{n_elements}; }                                      \
-      static inline _backend::_sequential<size> sequential(const size_t n_elements) noexcept \
-      { return _backend::_sequential<size>{n_elements}; }                                    \
-      SIMD() = delete;                                                                       \
-    };
 // ---------------------------------------------------------------------------------------------------------------------
+  namespace _backend
+  {
+    // T = type, V = vector type, M = mask type, A = alignment, S = sets used
+#   define PARALLILOS_MAKE_SIMD_SPECIALIZATION(T, V, M, A, S)                                  \
+      template<>                                                                               \
+      class SIMD<T>                                                                            \
+      {                                                                                        \
+      static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type");  \
+      public:                                                                                  \
+        static constexpr size_t size      = sizeof(V)/sizeof(T);                               \
+        static constexpr size_t alignment = A;                                                 \
+        using Type = V;                                                                        \
+        using Mask = M;                                                                        \
+        static constexpr const char* set = S;                                                  \
+        static _backend::_parallel<size> parallel(const size_t n_elements) noexcept            \
+        { return _backend::_parallel<size>{n_elements}; }                                      \
+        static _backend::_sequential<size> sequential(const size_t n_elements) noexcept        \
+        { return _backend::_sequential<size>{n_elements}; }                                    \
+        SIMD() = delete;                                                                       \
+      };
+  }
 #if defined(PARALLILOS_AVX512F)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
 # define PARALLILOS_F32
