@@ -787,7 +787,7 @@ namespace Parallilos
   void simd_storeu(float addr[], const SIMD<float>::Type& data)
   {
     PARALLILOS_F32_STOREU(addr, data);
-#   undef  PARALLILOS_F32_STOREU
+#   undef PARALLILOS_F32_STOREU
   }
 
   // store a vector into aligned memory
@@ -795,7 +795,7 @@ namespace Parallilos
   void simd_storea(float addr[], const SIMD<float>::Type& data)
   {
     PARALLILOS_F32_STOREA(addr, data);
-#   undef  PARALLILOS_F32_STOREA
+#   undef PARALLILOS_F32_STOREA
   }
 
   // load a vector with a specific value
@@ -1091,7 +1091,7 @@ namespace Parallilos
   void simd_storeu(double addr[], const SIMD<double>::Type& data)
   {
     PARALLILOS_F64_STOREU(addr, data);
-#   undef  PARALLILOS_F64_STOREU
+#   undef PARALLILOS_F64_STOREU
   }
 
   // store a vector into aligned memory
@@ -1099,7 +1099,7 @@ namespace Parallilos
   void simd_storea(double addr[], const SIMD<double>::Type& data)
   {
     PARALLILOS_F64_STOREA(addr, data);
-#   undef  PARALLILOS_F64_STOREA
+#   undef PARALLILOS_F64_STOREA
   }
 
   // load a vector with a specific value
@@ -1424,10 +1424,10 @@ namespace Parallilos
 # define PARALLILOS_I32_BW_XOR(a, b)          _mm_xor_si128(a, b)
 # define PARALLILOS_I32_BW_XNOR(a, b)         _mm_xor_si128(_mm_xor_si128(a, b), _mm_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_ABS(a)                                                                    \
-  [&]() -> __m128i {                                                                              \
-    const __m128i signmask = _mm_srai_epi32(a, 31);                                               \
-    return _mm_add_epi32(_mm_xor_si128(a, signmask), _mm_and_si128(signmask, _mm_set1_epi32(1))); \
+# define PARALLILOS_I32_ABS(a)                                  \
+  [&]() -> __m128i {                                            \
+    const __m128i signmask = _mm_srai_epi32(a, 31);             \
+    return _mm_sub_epi32(_mm_xor_si128(a, signmask), signmask); \
   }()
 #endif
 
@@ -1476,7 +1476,7 @@ namespace Parallilos
   void simd_storeu(int32_t addr[], const SIMD<int32_t>::Type& data)
   {
     PARALLILOS_I32_STOREU(addr, data);
-#   undef  PARALLILOS_I32_STOREU
+#   undef PARALLILOS_I32_STOREU
   }
 
   // store a vector into aligned memory
@@ -1489,7 +1489,7 @@ namespace Parallilos
   void simd_storea(uint32_t addr[], const SIMD<int32_t>::Type& data)
   {
     PARALLILOS_I32_STOREA(addr, data);
-#   undef  PARALLILOS_I32_STOREA
+#   undef PARALLILOS_I32_STOREA
   }
 
   // load a vector with a specific value
