@@ -51,7 +51,6 @@ parallelism.
 # include <mutex>       // for std::mutex, std::lock_guard
 #endif
 #if defined(PARALLILOS_LOGGING)
-# include <string>      // for std::string, std::to_string
 # include <type_traits> // for std::is_floating_point, std::is_unsigned, std::is_pointer, std::remove_pointer
 # include <typeinfo>    // for typeid
 # include <cstdio>      // for std::sprintf
@@ -229,25 +228,33 @@ namespace Parallilos
     };
 
 # if defined(PARALLILOS_LOGGING)
+    PARALLILOS_THREADLOCAL char _typename_buffer[16];
+
     template<typename T> inline
-    std::string _type_name()
+    const char* _type_name()
     {
       if (std::is_floating_point<T>::value)
       {
-        return "float" + std::to_string(sizeof(T) * 8);
+        std::sprintf(_typename_buffer, "float%u", static_cast<unsigned>(sizeof(T) * 8));
       }
-
-      if (std::is_unsigned<T>::value)
+      else if (std::is_unsigned<T>::value)
       {
-        return "uint" + std::to_string(sizeof(T) * 8);
+        std::sprintf(_typename_buffer, "uint%u", static_cast<unsigned>(sizeof(T) * 8));
       }
-
-      if (std::is_pointer<T>::value)
+      else if (std::is_pointer<T>::value)
       {
-        return _type_name<typename std::remove_pointer<T>::type>() + '*';
+        _type_name<typename std::remove_pointer<T>::type>();
+        char* char_ptr = _typename_buffer;
+        while (*char_ptr != '\0') { ++char_ptr; }
+        char_ptr[0] = '*';
+        char_ptr[1] = '\0';
+      }
+      else
+      {
+        std::sprintf(_typename_buffer, "int%u", static_cast<unsigned>(sizeof(T) * 8));
       }
 
-      return "int" + std::to_string(sizeof(T) * 8);
+      return _typename_buffer;
     }
 
     PARALLILOS_THREADLOCAL char _log_buffer[256];
@@ -295,7 +302,7 @@ namespace Parallilos
   template<typename T> inline
   typename SIMD<T>::Type simd_loadu(const T data[]) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
     return *data;
   }
 
@@ -303,7 +310,7 @@ namespace Parallilos
   template<typename T> inline
   typename SIMD<T>::Type simd_loada(const T data[]) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
     return *data;
   }
 
@@ -311,7 +318,7 @@ namespace Parallilos
   template<typename T> inline
   void simd_storeu(T addr[], const typename SIMD<T>::Type& data)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
     *addr = data;
   }
 
@@ -319,7 +326,7 @@ namespace Parallilos
   template<typename T> inline
   void simd_storea(T addr[], const typename SIMD<T>::Type& data)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
     *addr = data;
   }
 
@@ -327,7 +334,7 @@ namespace Parallilos
   template<typename T> inline
   typename SIMD<T>::Type simd_setzero() noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return 0;
   }
 
@@ -335,7 +342,7 @@ namespace Parallilos
   template<typename T> inline
   typename SIMD<T>::Type simd_setval(const T value) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return value;
   }
 
@@ -343,7 +350,7 @@ namespace Parallilos
   template<typename T> inline
   T simd_add(T a, T b)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a + b;
   }
 
@@ -351,7 +358,7 @@ namespace Parallilos
   template<typename T> inline
   T simd_mul(T a, T b)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a * b;
   }
 
@@ -359,7 +366,7 @@ namespace Parallilos
   template<typename T> inline
   T simd_sub(T a, T b)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a - b;
   }
 
@@ -367,7 +374,7 @@ namespace Parallilos
   template<typename T> inline
   T simd_div(T a, T b)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a / b;
   }
 
@@ -375,7 +382,7 @@ namespace Parallilos
   template<typename T> inline
   T simd_sqrt(T a)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return std::sqrt(a);
   }
 
@@ -383,7 +390,7 @@ namespace Parallilos
   template<typename T> inline
   T simd_addmul(T a, T b, T c)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a + b * c;
   }
 
@@ -391,7 +398,7 @@ namespace Parallilos
   template<typename T> inline
   T simd_submul(T a, T b, T c)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a - b * c;
   }
 
@@ -399,7 +406,7 @@ namespace Parallilos
   template<typename T> inline
   bool simd_eq(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a == b;
   }
 
@@ -407,7 +414,7 @@ namespace Parallilos
   template<typename T> inline
   bool simd_neq(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a != b;
   }
 
@@ -415,7 +422,7 @@ namespace Parallilos
   template<typename T> inline
   bool simd_gt(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a > b;
   }
 
@@ -423,7 +430,7 @@ namespace Parallilos
   template<typename T> inline
   bool simd_gte(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a >= b;
   }
 
@@ -431,7 +438,7 @@ namespace Parallilos
   template<typename T> inline
   bool simd_lt(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a < b;
   }
 
@@ -439,7 +446,7 @@ namespace Parallilos
   template<typename T> inline
   bool simd_lte(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a <= b;
   }
 
@@ -449,7 +456,7 @@ namespace Parallilos
     template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_not(T a) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return !a;
     }
 
@@ -457,7 +464,7 @@ namespace Parallilos
     template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_and(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return a & b;
     }
 
@@ -465,7 +472,7 @@ namespace Parallilos
     template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_nand(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return !(a & b);
     }
 
@@ -473,7 +480,7 @@ namespace Parallilos
     template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_or(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return a | b;
     }
 
@@ -481,7 +488,7 @@ namespace Parallilos
     template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_nor(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return !(a | b);
     }
 
@@ -489,7 +496,7 @@ namespace Parallilos
     template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_xor(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return a ^ b;
     }
 
@@ -497,7 +504,7 @@ namespace Parallilos
     template<typename T, typename = _backend::_if_integral<T>> inline
     T simd_xnor(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return !(a ^ b);
     }
   }
@@ -506,7 +513,7 @@ namespace Parallilos
   template<typename T> inline
   T simd_abs(T a) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>().c_str());
+    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return std::abs(a);
   }
 
