@@ -30,11 +30,12 @@ SOFTWARE.
 
 -----description--------------------------------------------------------------------------------------------------------
 
-Parallilos is a simple and lightweight C++11 (and newer) library that abstracts away SIMD usage to
-facilitate generic parallelism.
+Parallilos is a simple and lightweight C++11 (and newer) library that abstracts away SIMD usage to facilitate generic
+parallelism.
 
 -----inclusion guard--------------------------------------------------------------------------------------------------*/
-#ifndef PARALLILOS_HPP
+#if not defined(PARALLILOS_HPP)
+#if defined(__cplusplus) and (__cplusplus >= 201103L)
 #define PARALLILOS_HPP
 // --necessary standard libraries---------------------------------------------------------------------------------------
 #include <cstddef>      // for size_t
@@ -45,11 +46,11 @@ facilitate generic parallelism.
 #include <iostream>     // for std::cerr
 #include <type_traits>  // for std::is_arithmetic, std::is_integral, std::enable_if
 // --supplementary standard libraries-----------------------------------------------------------------------------------
-#if defined(PARALLILOS_LOGGING)
-#if defined(__STDCPP_THREADS__)
+#if defined(__STDCPP_THREADS__) and not defined(PARALLILOS_NOT_THREADSAFE)
 # define PARALLILOS_THREADSAFE
 # include <mutex>       // for std::mutex, std::lock_guard
 #endif
+#if defined(PARALLILOS_LOGGING)
 # include <string>      // for std::string, std::to_string
 # include <type_traits> // for std::is_floating_point, std::is_unsigned, std::is_pointer, std::remove_pointer
 # include <typeinfo>    // for typeid
@@ -118,15 +119,7 @@ facilitate generic parallelism.
 #endif
 
 namespace Parallilos
-{
-  namespace Version
-  {
-    constexpr long NUMBER = 000001000;
-    constexpr long MAJOR  = 000      ;
-    constexpr long MINOR  =    001   ;
-    constexpr long PATCH  =       000;
-  }
-  
+{  
   template<typename T>
   class SIMD;
 
@@ -138,17 +131,25 @@ namespace Parallilos
     std::ostream wrn{std::cerr.rdbuf()}; // warning ostream
     std::ostream log{std::clog.rdbuf()}; // logging ostream
   }
+
+  namespace Version
+  {
+    constexpr unsigned long MAJOR  = 000;
+    constexpr unsigned long MINOR  = 001;
+    constexpr unsigned long PATCH  = 000;
+    constexpr unsigned long NUMBER = (MAJOR * 1000 + MINOR) * 1000 + PATCH;
+  }
 // ---------------------------------------------------------------------------------------------------------------------
   namespace _backend
   {
-# if defined(__GNUC__)
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
-#   if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
-#     define PARALLILOS_HAS_ALIGNED_ALLOC
-#   endif
-# elif defined(__clang__)
+# if defined(__clang__)
 #   define PARALLILOS_INLINE __attribute__((always_inline)) inline
 #   if (__cplusplus >= 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
+#     define PARALLILOS_HAS_ALIGNED_ALLOC
+#   endif
+# elif defined(__GNUC__)
+#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#   if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
 #     define PARALLILOS_HAS_ALIGNED_ALLOC
 #   endif
 # elif defined(__MINGW32__) or defined(__MINGW64__)
@@ -165,6 +166,28 @@ namespace Parallilos
 # else
 #   define PARALLILOS_INLINE inline
 # endif
+
+# if defined(__clang__) and (__clang_major__ >= 12)
+#   define PARALLILOS_COLD [[unlikely]]
+#   define PARALLILOS_HOT  [[likely]]
+# elif defined(__GNUC__) and (__GNUC__ >= 9)
+#   define PARALLILOS_COLD [[unlikely]]
+#   define PARALLILOS_HOT  [[likely]]
+# else
+#   define PARALLILOS_COLD
+#   define PARALLILOS_HOT
+# endif
+
+# if defined(PARALLILOS_THREADSAFE)
+#   define PARALLILOS_THREADLOCAL     thread_local
+#   define PARALLILOS_MAKE_MUTEX(...) static std::mutex __VA_ARGS__
+#   define PARALLILOS_LOCK(MUTEX)     std::lock_guard<decltype(MUTEX)> _lock{MUTEX}
+# else
+#   define PARALLILOS_THREADLOCAL
+#   define PARALLILOS_MAKE_MUTEX(...)
+#   define PARALLILOS_LOCK(MUTEX)     void(0)
+# endif
+
     template<size_t size>
     class _parallel
     {
@@ -227,21 +250,14 @@ namespace Parallilos
       return "int" + std::to_string(sizeof(T) * 8);
     }
 
-# if defined (PARALLILOS_THREADSAFE)
-    thread_local char _log_buffer[256];
-    std::mutex _log_mtx;
-#   define PARALLILOS_LOG_LOCK std::lock_guard<std::mutex> lock{_backend::_log_mtx}
-# else
-    char _log_buffer[256];
-#   define PARALLILOS_LOG_LOCK
-# endif
+    PARALLILOS_THREADLOCAL char _log_buffer[256];
+    PARALLILOS_MAKE_MUTEX(_log_mtx);
     
-#   define PARALLILOS_LOG(...)                       \
-      [&](const char* caller){                       \
-        sprintf(_backend::_log_buffer, __VA_ARGS__); \
-        PARALLILOS_LOG_LOCK;                         \
-        Global::log << caller << ": "                \
-        << _backend::_log_buffer << std::endl;       \
+#   define PARALLILOS_LOG(...)                                               \
+      [&](const char* caller){                                               \
+        sprintf(_backend::_log_buffer, __VA_ARGS__);                         \
+        PARALLILOS_LOCK(_backend::_log_mtx);                                 \
+        Global::log << caller << ": " << _backend::_log_buffer << std::endl; \
       }(__func__)
 # else
 #   define PARALLILOS_LOG(...) void(0)
@@ -249,17 +265,6 @@ namespace Parallilos
 
     template<typename T>
     using _if_integral = typename std::enable_if<std::is_integral<T>::value>::type;
-
-# if defined(__GNUC__) and (__GNUC__ >= 9)
-#   define PARALLILOS_COLD [[unlikely]]
-#   define PARALLILOS_HOT  [[likely]]
-# elif defined(__clang__) and (__clang_major__ >= 12)
-#   define PARALLILOS_COLD [[unlikely]]
-#   define PARALLILOS_HOT  [[likely]]
-# else
-#   define PARALLILOS_COLD
-#   define PARALLILOS_HOT
-# endif
   }
 // ---------------------------------------------------------------------------------------------------------------------
   template<typename T>
@@ -1694,5 +1699,15 @@ namespace Parallilos
   }
 #endif
 }
+#undef PARALLILOS_INLINE
+#undef PARALLILOS_COLD
+#undef PARALLILOS_HOT
+#undef PARALLILOS_THREADSAFE
+#undef PARALLILOS_THREADLOCAL
+#undef PARALLILOS_MAKE_MUTEX
+#undef PARALLILOS_LOCK
 #undef PARALLILOS_MAKE_SIMD_SPECIALIZATION
+#else
+#error "Nimata: Support for ISO C++11 is required"
+#endif
 #endif
