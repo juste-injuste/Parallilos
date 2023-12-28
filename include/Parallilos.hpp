@@ -166,15 +166,29 @@ namespace Parallilos
 #   define PARALLILOS_INLINE inline
 # endif
 
+// support from clang 12.0.0 and GCC 10.1 onward
 # if defined(__clang__) and (__clang_major__ >= 12)
-#   define PARALLILOS_COLD [[unlikely]]
-#   define PARALLILOS_HOT  [[likely]]
-# elif defined(__GNUC__) and (__GNUC__ >= 9)
-#   define PARALLILOS_COLD [[unlikely]]
-#   define PARALLILOS_HOT  [[likely]]
+# if __cplusplus < 202002L
+#   define PARALLILOS_HOT                                      \
+    _Pragma("clang diagnostic push")                           \
+    _Pragma("clang diagnostic ignored \"-Wc++20-extensions\"") \
+    [[likely]]                                                 \
+    _Pragma("clang diagnostic pop")
+#   define PARALLILOS_COLD                                     \
+    _Pragma("clang diagnostic push")                           \
+    _Pragma("clang diagnostic ignored \"-Wc++20-extensions\"") \
+    [[unlikely]]                                               \
+    _Pragma("clang diagnostic pop")
 # else
-#   define PARALLILOS_COLD
+#   define PARALLILOS_HOT  [[likely]]
+#   define PARALLILOS_COLD [[unlikely]]
+# endif
+# elif defined(__GNUC__) and (__GNUC__ >= 10)
+#   define PARALLILOS_HOT  [[likely]]
+#   define PARALLILOS_COLD [[unlikely]]
+# else
 #   define PARALLILOS_HOT
+#   define PARALLILOS_COLD
 # endif
 
 # if defined(PARALLILOS_THREADSAFE)
