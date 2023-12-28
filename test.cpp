@@ -1,42 +1,81 @@
 #include <iostream>
 #include <cstdint>
-#include <immintrin.h>
 
-std::ostream& operator<<(std::ostream& ostream, const __m128i vector) noexcept
+#define PARALLILOS_LOGGING
+#include "include/Parallilos.hpp"
+
+template<typename T> inline
+void print_array(const Parallilos::Array<T>& array)
 {
-    for (unsigned k = 0; k < 4; ++k)
-    {
-        if (k != 0) ostream << ' ';
-        ostream << reinterpret_cast<const int32_t*>(&vector)[k];
-    }
-    return ostream;
+  using namespace Parallilos;
+
+  for (unsigned k = 0; k < array.size(); ++k)
+    std::cout << array[k] << ' ';
+  std::cout << '\n';
+  
+  std::cout << "Instruction set:          " << SIMD<T>::set  << '\n';
+  std::cout << "Data per parallel passes: " << SIMD<T>::size << '\n';
+  std::cout << "Parallel passes:          " << SIMD<T>::parallel(array.size()).passes   << '\n';
+  std::cout << "Sequential passes:        " << SIMD<T>::sequential(array.size()).passes << '\n';
 }
 
-
-int32_t abs(int32_t a)
+int test()
 {
-    auto s = (a >> 31);
-    std::cout << "mask: " << s << '\n';
-    return (a ^ s) + (s & 1);
-}
+  using namespace Parallilos;
+  // using type = float;
 
-__m128i abs(__m128i a)
-{
-    auto s   = _mm_srai_epi32 (a, 31);
-    std::cout << "mask: " << s << '\n';
-    auto lhs = _mm_xor_si128(a, s);
-    auto rhs = _mm_and_si128(s, _mm_set1_epi32(1));
-    return _mm_add_epi32(lhs, rhs);
-}
+  // // heap array
+  // const unsigned n = 20;
+  // Array<type> a = Array<type>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  // Array<type> b = Array<type>({9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+  // Array<type> c = Array<type>(n);
 
-int32_t main()
-{
-    int32_t a = 2, b = -2;
-    __m128i c = _mm_set1_epi32(2), d = _mm_set1_epi32(-2);
+  // // parallel processing
+  // for (auto k : SIMD<type>::parallel(n))
+  // {
+  //   simd_storea(c+k, simd_mul(a.as_vector(k), b.as_vector(k)));
+  // }
 
-    std::cout << a << ' ' << abs(a) << '\n';
-    std::cout << b << ' ' << abs(b) << '\n';
+  // // sequential fallback
+  // for (auto k : SIMD<type>::sequential(n))
+  // {
+  //   c[k] = a[k] * b[k];
+  // }
+  
+  // // display result array
+  // print_array(c);
 
-    std::cout << c << ' ' << abs(c) << '\n';
-    std::cout << d << ' ' << abs(d) << '\n';
+  // auto v1 = simd_setval<double>(1);
+  // auto v2 = simd_setval<char>('2');
+  // auto v3 = simd_setval<int32_t>(3);
+  // auto v4 = simd_setval<float>(4);
+
+  // auto m1 = simd_gt(v1, v1);
+  // auto m2 = simd_gt(v2, v2);
+  // auto m3 = simd_gt(v3, v3);
+  // auto m4 = simd_gt(v4, v4);
+
+  // std::cout << typeid(decltype(m1)).name() << '\n';
+  // std::cout << typeid(decltype(m2)).name() << '\n';
+  // std::cout << typeid(decltype(m3)).name() << '\n';
+  // std::cout << typeid(decltype(m4)).name() << '\n';
+
+  // std::cout << "double: " << v1 << '\n';
+  // std::cout << "char:   " << v2 << '\n';
+  // std::cout << "int32:  " << v3 << '\n';
+  // std::cout << "float:  " << v4 << '\n';
+
+  // auto a = simd_setval(1.0f);
+  // auto b = simd_setval(2.0f);
+  // std::cout << simd_add(a, b) << '\n'; // prints " 3   3   ...  3"
+  // std::cout << simd_sub(a, b) << '\n'; // prints "-1  -1   ... -1"
+  // std::cout << simd_mul(a, b) << '\n'; // prints " 2   2   ...  2"
+  // std::cout << simd_div(a, b) << '\n'; // prints " 0.5 0.5 ...  0.5"
+
+  auto a = simd_setval(2);
+  auto b = simd_setval(-2);
+  std::cout << a << " -> " << simd_abs(a) << '\n';
+  std::cout << b << " -> " << simd_abs(b) << '\n';
+  
+  return 0;
 }

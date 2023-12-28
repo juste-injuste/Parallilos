@@ -4,7 +4,7 @@
 #define PARALLILOS_LOGGING
 #include "include/Parallilos.hpp"
 
-template<typename T>
+template<typename T> inline
 void print_array(const Parallilos::Array<T>& array)
 {
   using namespace Parallilos;

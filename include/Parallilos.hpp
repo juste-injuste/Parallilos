@@ -127,8 +127,8 @@ namespace Parallilos
 
   namespace Global
   {
-    std::ostream wrn{std::cerr.rdbuf()}; // warning ostream
-    std::ostream log{std::clog.rdbuf()}; // logging ostream
+    static std::ostream wrn{std::cerr.rdbuf()}; // warning ostream
+    static std::ostream log{std::clog.rdbuf()}; // logging ostream
   }
 
   namespace Version
@@ -228,7 +228,7 @@ namespace Parallilos
     };
 
 # if defined(PARALLILOS_LOGGING)
-    PARALLILOS_THREADLOCAL char _typename_buffer[16];
+    PARALLILOS_THREADLOCAL static char _typename_buffer[16];
 
     template<typename T> inline
     const char* _type_name()
@@ -257,7 +257,7 @@ namespace Parallilos
       return _typename_buffer;
     }
 
-    PARALLILOS_THREADLOCAL char _log_buffer[256];
+    PARALLILOS_THREADLOCAL static char _log_buffer[256];
     PARALLILOS_MAKE_MUTEX(_log_mtx);
     
 #   define PARALLILOS_LOG(...)                                               \
@@ -930,6 +930,7 @@ namespace Parallilos
 #   undef  PARALLILOS_F32_ABS
   }
 
+  inline
   std::ostream& operator<<(std::ostream& ostream, const SIMD<float>::Type& vector) noexcept
   {
     for (unsigned k = 0; k < SIMD<float>::size; ++k)
@@ -1234,6 +1235,7 @@ namespace Parallilos
 #   undef  PARALLILOS_F64_ABS
   }
 
+  inline
   std::ostream& operator<<(std::ostream& ostream, const SIMD<double>::Type& vector) noexcept
   {
     for (unsigned k = 0; k < SIMD<double>::size; ++k)
@@ -1524,8 +1526,6 @@ namespace Parallilos
     return PARALLILOS_I32_ADD(a, b);
 #   undef  PARALLILOS_I32_ADD
   }
-  
-  
 
   // [a] * [b]
   PARALLILOS_INLINE
@@ -1690,6 +1690,7 @@ namespace Parallilos
 #   undef  PARALLILOS_I32_ABS
   }
 
+  inline
   std::ostream& operator<<(std::ostream& ostream, const SIMD<int32_t>::Type& vector) noexcept
   {
     for (unsigned k = 0; k < SIMD<int32_t>::size; ++k)
@@ -1715,6 +1716,6 @@ namespace Parallilos
 #undef PARALLILOS_LOCK
 #undef PARALLILOS_MAKE_SIMD_SPECIALIZATION
 #else
-#error "Nimata: Support for ISO C++11 is required"
+#error "Parallilos: Support for ISO C++11 is required"
 #endif
 #endif

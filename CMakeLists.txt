@@ -10,4 +10,4 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
 set(PARALLILOS_SOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_executable(Parallilos ${PARALLILOS_SOURCES_DIR}/examples.cpp)
+add_executable(Parallilos ${PARALLILOS_SOURCES_DIR}/examples.cpp ${PARALLILOS_SOURCES_DIR}/test.cpp)
