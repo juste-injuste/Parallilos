@@ -151,17 +151,17 @@ namespace Parallilos
 #   if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
 #     define PARALLILOS_HAS_ALIGNED_ALLOC
 #   endif
-# elif defined(__MINGW32__) or defined(__MINGW64__)
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# elif defined(__apple_build_version__)
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
-# elif defined(_MSC_VER)
-#   define PARALLILOS_INLINE __forceinline
-# elif defined(__INTEL_COMPILER)
-#   define PARALLILOS_SVML
-#   define PARALLILOS_INLINE __forceinline
-# elif defined(__ARMCC_VERSION)
-#   define PARALLILOS_INLINE __forceinline
+// # elif defined(__MINGW32__) or defined(__MINGW64__)
+// #   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+// # elif defined(__apple_build_version__)
+// #   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+// # elif defined(_MSC_VER)
+// #   define PARALLILOS_INLINE __forceinline
+// # elif defined(__INTEL_COMPILER)
+// #   define PARALLILOS_SVML
+// #   define PARALLILOS_INLINE __forceinline
+// # elif defined(__ARMCC_VERSION)
+// #   define PARALLILOS_INLINE __forceinline
 # else
 #   define PARALLILOS_INLINE inline
 # endif
@@ -205,19 +205,19 @@ namespace Parallilos
     {
     public:
       _parallel(const size_t n_elements) noexcept :
-        current_index{0},
-        passes_left{size ? (n_elements / size) : 0}
+        _current_index{0},
+        _passes_left{size ? (n_elements / size) : 0}
       {}
-      size_t     operator*()                  noexcept {return current_index;}
-      void       operator++()                 noexcept {--passes_left, current_index += size;}
-      bool       operator!=(const _parallel&) noexcept {return passes_left;}
+      size_t     operator*()                  noexcept {return _current_index;}
+      void       operator++()                 noexcept {--_passes_left, _current_index += size;}
+      bool       operator!=(const _parallel&) noexcept {return _passes_left;}
       _parallel& begin()                      noexcept {return *this;}
       _parallel  end()                        noexcept {return _parallel{0};}
     private:
-      size_t current_index;
-      size_t passes_left;
+      size_t _current_index;
+      size_t _passes_left;
     public:
-      const size_t passes = passes_left;
+      const size_t _passes = _passes_left;
     };
 
     template<size_t size>
@@ -225,23 +225,23 @@ namespace Parallilos
     {
     public:
       _sequential(const size_t n_elements) noexcept :
-        current_index{size ? ((n_elements / size) * size) : 0},
-        passes_left{n_elements - current_index}
+        _current_index{size ? ((n_elements / size) * size) : 0},
+        _passes_left{n_elements - _current_index}
       {}
-      size_t       operator*()                    noexcept {return current_index;}
-      void         operator++()                   noexcept {--passes_left, ++current_index;}
-      bool         operator!=(const _sequential&) noexcept {return passes_left;}
+      size_t       operator*()                    noexcept {return _current_index;}
+      void         operator++()                   noexcept {--_passes_left, ++_current_index;}
+      bool         operator!=(const _sequential&) noexcept {return _passes_left;}
       _sequential& begin()                        noexcept {return *this;}
       _sequential  end()                          noexcept {return _sequential{0};}
     private:
-      size_t current_index;
-      size_t passes_left;
+      size_t _current_index;
+      size_t _passes_left;
     public:
-      const size_t passes = passes_left;
+      const size_t _passes = _passes_left;
     };
 
 # if defined(PARALLILOS_LOGGING)
-    PARALLILOS_THREADLOCAL static char _typename_buffer[16];
+    static PARALLILOS_THREADLOCAL char _typename_buffer[16];
 
     template<typename T> inline
     const char* _type_name()
@@ -270,7 +270,7 @@ namespace Parallilos
       return _typename_buffer;
     }
 
-    PARALLILOS_THREADLOCAL static char _log_buffer[256];
+    static PARALLILOS_THREADLOCAL char _log_buffer[256];
     PARALLILOS_MAKE_MUTEX(_log_mtx);
     
 #   define PARALLILOS_LOG(...)                                               \
@@ -535,22 +535,22 @@ namespace Parallilos
   {
   static_assert(std::is_arithmetic<T>::value, "T in Array<T> must be an arithmetic type");
   public:
-    const T* data(const size_t k = 0)   const noexcept { return array + k; }
-    T*       data(const size_t k = 0)         noexcept { return array + k; }
-    size_t   size()                     const noexcept { return numel; }
-    T        operator[](const size_t k) const noexcept { return array[k]; }
-    T&       operator[](const size_t k)       noexcept { return array[k]; }
-    operator T*()                             noexcept { return array; }
+    const T* data(const size_t k = 0)   const noexcept { return _array + k; }
+    T*       data(const size_t k = 0)         noexcept { return _array + k; }
+    size_t   size()                     const noexcept { return _numel; }
+    T        operator[](const size_t k) const noexcept { return _array[k]; }
+    T&       operator[](const size_t k)       noexcept { return _array[k]; }
+    operator T*()                             noexcept { return _array; }
     T*       release()                        noexcept
     {
-      T* data = array;
-      array   = nullptr;
-      numel   = 0;
+      T* data = _array;
+      _array  = nullptr;
+      _numel  = 0;
       return data;
     }
 
     Array(const size_t number_of_elements) noexcept :
-      array([number_of_elements]() -> T* {
+      _array([number_of_elements]() -> T* {
         if ((number_of_elements == 0)) PARALLILOS_COLD
         {
           return nullptr;
@@ -581,47 +581,47 @@ namespace Parallilos
         return reinterpret_cast<T*>(aligned_memory_block);
 #     endif
       }()),
-      numel(array == nullptr ? 0 : number_of_elements)
+      _numel(_array == nullptr ? 0 : number_of_elements)
     {
-      PARALLILOS_LOG("created array of size %u", unsigned(numel));
+      PARALLILOS_LOG("created array of size %u", unsigned(_numel));
     }
 
     Array(const std::initializer_list<T> initializer_list) noexcept :
       Array(initializer_list.size())
     {
-      if (numel != 0) PARALLILOS_HOT
+      if (_numel != 0) PARALLILOS_HOT
       {
         size_t k = 0;
         for (T value : initializer_list)
         {
-          array[k++] = value;
+          _array[k++] = value;
         }
       }
     }
     
     Array(Array&& other) noexcept :
-      array(other.array),
-      numel(other.numel)
+      _array(other._array),
+      _numel(other._numel)
     {
-      PARALLILOS_LOG("moved array of size %u", unsigned(numel));
-      other.array = nullptr;
-      other.numel = 0;
+      PARALLILOS_LOG("moved array of size %u", unsigned(_numel));
+      other._array = nullptr;
+      other._numel = 0;
     }
 
     Array(const Array&) = delete; // copying is disallowed
 
     ~Array()
     {
-      if (array != nullptr) PARALLILOS_HOT
+      if (_array != nullptr) PARALLILOS_HOT
       {
 #   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
-        std::free(array);
+        std::free(_array);
 #   else
         if (SIMD<T>::alignment != 0) PARALLILOS_HOT
         {
-          std::free(reinterpret_cast<void**>(array)[-1]);
+          std::free(reinterpret_cast<void**>(_array)[-1]);
         }
-        else std::free(array);
+        else std::free(_array);
 #   endif
       }
       PARALLILOS_LOG("freed used memory");
@@ -630,11 +630,11 @@ namespace Parallilos
     // interpret aligned array as a vector, k is an offset in elements into the array
     typename SIMD<T>::Type& as_vector(const size_t k) noexcept
     {
-      return reinterpret_cast<typename SIMD<T>::Type&>(array[k]);
+      return reinterpret_cast<typename SIMD<T>::Type&>(_array[k]);
     }
   private:
-    T*     array;
-    size_t numel;
+    T*     _array;
+    size_t _numel;
   };
 // ---------------------------------------------------------------------------------------------------------------------
   namespace _backend
