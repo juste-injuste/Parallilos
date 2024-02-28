@@ -33,11 +33,13 @@ SOFTWARE.
 Parallilos is a simple and lightweight C++11 (and newer) library that abstracts away SIMD usage to facilitate generic
 parallelism.
 
+ppz::SIMD;
+
 -----inclusion guard--------------------------------------------------------------------------------------------------*/
-#if not defined(PARALLILOS_HPP)
+#if not defined(_ppz_HPP)
 #if defined(__cplusplus) and (__cplusplus >= 201103L)
-#define PARALLILOS_HPP
-// --necessary standard libraries---------------------------------------------------------------------------------------
+#define _ppz_HPP
+//---necessary standard libraries---------------------------------------------------------------------------------------
 #include <cstddef>      // for size_t
 #include <cstdint>      // for fixed-sized integers
 #include <cmath>        // for std::sqrt
@@ -45,9 +47,9 @@ parallelism.
 #include <ostream>      // for std::ostream
 #include <iostream>     // for std::cerr
 #include <type_traits>  // for std::is_arithmetic, std::is_integral, std::enable_if
-// --supplementary standard libraries-----------------------------------------------------------------------------------
+//---conditionally necessary standard libraries-------------------------------------------------------------------------
 #if defined(__STDCPP_THREADS__) and not defined(PARALLILOS_NOT_THREADSAFE)
-# define PARALLILOS_THREADSAFE
+# define _impl_ppz_THREADSAFE
 # include <mutex>       // for std::mutex, std::lock_guard
 #endif
 #if defined(PARALLILOS_LOGGING)
@@ -55,65 +57,65 @@ parallelism.
 # include <typeinfo>    // for typeid
 # include <cstdio>      // for std::sprintf
 #endif
-// --Parallilos library-------------------------------------------------------------------------------------------------
+//---Parallilos library-------------------------------------------------------------------------------------------------
 #if defined(__AVX512F__)
-# define PARALLILOS_AVX512F
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_AVX512F
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 #if defined(__AVX2__)
-# define PARALLILOS_AVX2
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_AVX2
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 #if defined(__FMA__)
-# define PARALLILOS_FMA
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_FMA
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 #if defined(__AVX__)
-# define PARALLILOS_AVX
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_AVX
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 
 #if defined(__SSE4_2__)
-# define PARALLILOS_SSE4_2
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_SSE4_2
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 #if defined(__SSE4_1__)
-# define PARALLILOS_SSE4_1
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_SSE4_1
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 #if defined(__SSSE3__)
-# define PARALLILOS_SSSE3
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_SSSE3
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 #if defined(__SSE3__)
-# define PARALLILOS_SSE3
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_SSE3
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 #if defined(__SSE2__)
-# define PARALLILOS_SSE2
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_SSE2
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 #if defined(__SSE__)
-# define PARALLILOS_SSE
-# define PARALLILOS_SIMD_HEADER <immintrin.h>
+# define _impl_ppz_SSE
+# define _impl_ppz_SIMD_HEADER <immintrin.h>
 #endif
 
 // #if defined(__ARM_NEON) or defined(__ARM_NEON__)
 // # if defined(__ARM_ARCH_64)
-// #   define PARALLILOS_NEON64
-// #   define PARALLILOS_SIMD_HEADER <arm64_neon.h>
+// #   define _impl_ppz_NEON64
+// #   define _impl_ppz_SIMD_HEADER <arm64_neon.h>
 // # else
-// #   define PARALLILOS_NEON
-// #   define PARALLILOS_SIMD_HEADER <arm_neon.h>
+// #   define _impl_ppz_NEON
+// #   define _impl_ppz_SIMD_HEADER <arm_neon.h>
 // # endif
 // #endif
 
-#if defined(PARALLILOS_SIMD_HEADER)
+#if defined(_impl_ppz_SIMD_HEADER)
 # if not defined(__OPTIMIZE__)
 #   define __OPTIMIZE__
-#   include PARALLILOS_SIMD_HEADER
+#   include _impl_ppz_SIMD_HEADER
 # else
-#   include PARALLILOS_SIMD_HEADER
+#   include _impl_ppz_SIMD_HEADER
 # endif
 #endif
 
@@ -125,13 +127,12 @@ namespace Parallilos
   template<typename T>
   class Array;
 
-  namespace Global
+  namespace _io
   {
-    static std::ostream wrn{std::cerr.rdbuf()}; // warning ostream
-    static std::ostream log{std::clog.rdbuf()}; // logging ostream
+    static std::ostream log(std::clog.rdbuf()); // logging ostream
   }
 
-  namespace Version
+  namespace _version
   {
     constexpr unsigned long MAJOR  = 000;
     constexpr unsigned long MINOR  = 001;
@@ -142,109 +143,114 @@ namespace Parallilos
   namespace _backend
   {
 # if defined(__clang__)
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#   define _impl_ppz_INLINE __attribute__((always_inline)) inline
 #   if (__cplusplus >= 201703L) and defined(_LIBCPP_HAS_C11_FEATURES)
-#     define PARALLILOS_HAS_ALIGNED_ALLOC
+#     define _impl_ppz_HAS_ALIGNED_ALLOC
 #   endif
 # elif defined(__GNUC__)
-#   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+#   define _impl_ppz_INLINE __attribute__((always_inline)) inline
 #   if (__cplusplus >= 201703L) and defined(_GLIBCXX_HAVE_ALIGNED_ALLOC)
-#     define PARALLILOS_HAS_ALIGNED_ALLOC
+#     define _impl_ppz_HAS_ALIGNED_ALLOC
 #   endif
 // # elif defined(__MINGW32__) or defined(__MINGW64__)
-// #   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+// #   define _impl_ppz_INLINE __attribute__((always_inline)) inline
 // # elif defined(__apple_build_version__)
-// #   define PARALLILOS_INLINE __attribute__((always_inline)) inline
+// #   define _impl_ppz_INLINE __attribute__((always_inline)) inline
 // # elif defined(_MSC_VER)
-// #   define PARALLILOS_INLINE __forceinline
+// #   define _impl_ppz_INLINE __forceinline
 // # elif defined(__INTEL_COMPILER)
-// #   define PARALLILOS_SVML
-// #   define PARALLILOS_INLINE __forceinline
+// #   define _impl_ppz_SVML
+// #   define _impl_ppz_INLINE __forceinline
 // # elif defined(__ARMCC_VERSION)
-// #   define PARALLILOS_INLINE __forceinline
+// #   define _impl_ppz_INLINE __forceinline
 # else
-#   define PARALLILOS_INLINE inline
+#   define _impl_ppz_INLINE inline
 # endif
 
-#   define PARALLILOS_PRAGMA(PRAGMA) _Pragma(#PRAGMA)
-#   define PARALLILOS_CLANG_IGNORE(WARNING, ...)          \
-      PARALLILOS_PRAGMA(clang diagnostic push)            \
-      PARALLILOS_PRAGMA(clang diagnostic ignored WARNING) \
+#   define _impl_ppz_PRAGMA(PRAGMA) _Pragma(#PRAGMA)
+#   define _impl_ppz_IGNORE(WARNING, ...)                \
+      _impl_ppz_PRAGMA(clang diagnostic push)            \
+      _impl_ppz_PRAGMA(clang diagnostic ignored WARNING) \
       __VA_ARGS__                                         \
-      PARALLILOS_PRAGMA(clang diagnostic pop)
+      _impl_ppz_PRAGMA(clang diagnostic pop)
 
 // support from clang 12.0.0 and GCC 10.1 onward
 # if defined(__clang__) and (__clang_major__ >= 12)
 # if __cplusplus < 202002L
-#   define PARALLILOS_HOT  PARALLILOS_CLANG_IGNORE("-Wc++20-extensions", [[likely]])
-#   define PARALLILOS_COLD PARALLILOS_CLANG_IGNORE("-Wc++20-extensions", [[unlikely]])
+#   define _impl_ppz_HOT  _impl_ppz_IGNORE("-Wc++20-extensions", [[likely]])
+#   define _impl_ppz_COLD _impl_ppz_IGNORE("-Wc++20-extensions", [[unlikely]])
 # else
-#   define PARALLILOS_HOT  [[likely]]
-#   define PARALLILOS_COLD [[unlikely]]
+#   define _impl_ppz_HOT  [[likely]]
+#   define _impl_ppz_COLD [[unlikely]]
 # endif
 # elif defined(__GNUC__) and (__GNUC__ >= 10)
-#   define PARALLILOS_HOT  [[likely]]
-#   define PARALLILOS_COLD [[unlikely]]
+#   define _impl_ppz_HOT  [[likely]]
+#   define _impl_ppz_COLD [[unlikely]]
 # else
-#   define PARALLILOS_HOT
-#   define PARALLILOS_COLD
+#   define _impl_ppz_HOT
+#   define _impl_ppz_COLD
 # endif
 
-# if defined(PARALLILOS_THREADSAFE)
-#   define PARALLILOS_THREADLOCAL     thread_local
-#   define PARALLILOS_MAKE_MUTEX(...) static std::mutex __VA_ARGS__
-#   define PARALLILOS_LOCK(MUTEX)     std::lock_guard<decltype(MUTEX)> _lock{MUTEX}
+# if __cplusplus >= 201402L
+#   define _impl_ppz_CONSTEXPR_CPP14 constexpr
 # else
-#   define PARALLILOS_THREADLOCAL
-#   define PARALLILOS_MAKE_MUTEX(...)
-#   define PARALLILOS_LOCK(MUTEX)     void(0)
+#   define _impl_ppz_CONSTEXPR_CPP14
+# endif
+
+# if defined(_impl_ppz_THREADSAFE)
+#   undef  _impl_ppz_THREADSAFE
+#   define _impl_ppz_THREADLOCAL         thread_local
+#   define _impl_ppz_DECLARE_MUTEX(...)  static std::mutex __VA_ARGS__
+#   define _impl_ppz_DECLARE_LOCK(MUTEX) std::lock_guard<decltype(MUTEX)> _lock{MUTEX}
+# else
+#   define _impl_ppz_THREADLOCAL
+#   define _impl_ppz_DECLARE_MUTEX(...)
+#   define _impl_ppz_DECLARE_LOCK(MUTEX) void(0)
 # endif
 
     template<size_t size>
     class _parallel
     {
     public:
-      _parallel(const size_t n_elements) noexcept :
-        _current_index(0),
-        _passes_left(size ? (n_elements / size) : 0)
+      constexpr _parallel(const size_t n_elements) noexcept :
+        _current_index(0), _passes_left(size ? (n_elements / size) : 0)
       {}
-      size_t     operator*()                  noexcept {return _current_index;}
-      void       operator++()                 noexcept {--_passes_left, _current_index += size;}
-      bool       operator!=(const _parallel&) noexcept {return _passes_left;}
-      _parallel& begin()                      noexcept {return *this;}
-      _parallel  end()                        noexcept {return _parallel(0);}
+      constexpr                  size_t     operator*()                  noexcept {return _current_index;}
+      _impl_ppz_CONSTEXPR_CPP14 void       operator++()                 noexcept {--_passes_left, _current_index += size;}
+      constexpr                  bool       operator!=(const _parallel&) noexcept {return _passes_left;}
+      _impl_ppz_CONSTEXPR_CPP14 _parallel& begin()                      noexcept {return *this;}
+      constexpr                  _parallel  end()                        noexcept {return _parallel(0);}
     private:
       size_t _current_index;
       size_t _passes_left;
     public:
-      const size_t _passes = _passes_left;
+      const size_t passes = _passes_left;
     };
 
     template<size_t size>
     class _sequential
     {
     public:
-      _sequential(const size_t n_elements) noexcept :
-        _current_index(size ? ((n_elements / size) * size) : 0),
-        _passes_left(n_elements - _current_index)
+      constexpr _sequential(const size_t n_elements) noexcept :
+        _current_index(size ? ((n_elements / size) * size) : 0), _passes_left(n_elements - _current_index)
       {}
-      size_t       operator*()                    noexcept {return _current_index;}
-      void         operator++()                   noexcept {--_passes_left, ++_current_index;}
-      bool         operator!=(const _sequential&) noexcept {return _passes_left;}
-      _sequential& begin()                        noexcept {return *this;}
-      _sequential  end()                          noexcept {return _sequential(0);}
+      constexpr                  size_t       operator*()                    noexcept {return _current_index;}
+      _impl_ppz_CONSTEXPR_CPP14 void         operator++()                   noexcept {--_passes_left, ++_current_index;}
+      constexpr                  bool         operator!=(const _sequential&) noexcept {return _passes_left;}
+      _impl_ppz_CONSTEXPR_CPP14 _sequential& begin()                        noexcept {return *this;}
+      constexpr                  _sequential  end()                          noexcept {return _sequential(0);}
     private:
       size_t _current_index;
       size_t _passes_left;
     public:
-      const size_t _passes = _passes_left;
+      const size_t passes = _passes_left;
     };
 
 # if defined(PARALLILOS_LOGGING)
-    static PARALLILOS_THREADLOCAL char _typename_buffer[32];
+    static _impl_ppz_THREADLOCAL char _typename_buffer[32];
 
     template<typename T>
-    inline
+    _impl_ppz_CONSTEXPR_CPP14
     const char* _type_name()
     {
       if (std::is_floating_point<T>::value)
@@ -271,17 +277,17 @@ namespace Parallilos
       return _typename_buffer;
     }
 
-    static PARALLILOS_THREADLOCAL char _log_buffer[256];
-    PARALLILOS_MAKE_MUTEX(_log_mtx);
+    static _impl_ppz_THREADLOCAL char _log_buffer[256];
+    _impl_ppz_DECLARE_MUTEX(_log_mtx);
     
-#   define PARALLILOS_LOG(...)                                               \
-      [&](const char* caller){                                               \
-        sprintf(_backend::_log_buffer, __VA_ARGS__);                         \
-        PARALLILOS_LOCK(_backend::_log_mtx);                                 \
-        Global::log << caller << ": " << _backend::_log_buffer << std::endl; \
+#   define _impl_ppz_LOG(...)                                             \
+      [&](const char* caller){                                            \
+        sprintf(_backend::_log_buffer, __VA_ARGS__);                      \
+        _impl_ppz_DECLARE_LOCK(_backend::_log_mtx);                       \
+        _io::log << caller << ": " << _backend::_log_buffer << std::endl; \
       }(__func__)
 # else
-#   define PARALLILOS_LOG(...) void(0)
+#   define _impl_ppz_LOG(...) void(0)
 # endif
 
     template<typename T>
@@ -291,7 +297,7 @@ namespace Parallilos
   template<typename T>
   class SIMD
   {
-  static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type");
+  static_assert(std::is_arithmetic<T>::value, "T in SIMD<T> must be an arithmetic type.");
   public:
     static constexpr size_t size      = 0;
     static constexpr size_t alignment = 0;
@@ -299,12 +305,14 @@ namespace Parallilos
     using Mask = bool;
     static constexpr const char* set = "no SIMD instruction set used for this type";
 
-    static _backend::_parallel<size> parallel(const size_t n_elements) noexcept
+    static constexpr
+    _backend::_parallel<size> parallel(const size_t n_elements) noexcept
     {
       return _backend::_parallel<size>(n_elements);
     }
 
-    static _backend::_sequential<size> sequential(const size_t n_elements) noexcept
+    static constexpr
+    _backend::_sequential<size> sequential(const size_t n_elements) noexcept
     {
       return _backend::_sequential<size>(n_elements);
     }
@@ -314,172 +322,172 @@ namespace Parallilos
 
   // load a vector from unaligned data
   template<typename T>
-  inline
+  constexpr
   typename SIMD<T>::Type simd_loadu(const T data[]) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
     return *data;
   }
 
   // load a vector from aligned data
   template<typename T>
-  inline
+  constexpr
   typename SIMD<T>::Type simd_loada(const T data[]) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
     return *data;
   }
 
   // store a vector into unaligned memory
   template<typename T>
-  inline
+  constexpr
   void simd_storeu(T addr[], const typename SIMD<T>::Type& data)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
     *addr = data;
   }
 
   // store a vector into aligned memory
   template<typename T>
-  inline
+  constexpr
   void simd_storea(T addr[], const typename SIMD<T>::Type& data)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T*>());
     *addr = data;
   }
 
   // load a vector with zeros
   template<typename T>
-  inline
+  constexpr
   typename SIMD<T>::Type simd_setzero() noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return 0;
   }
 
   // load a vector with a specific value
   template<typename T>
-  inline
+  constexpr
   typename SIMD<T>::Type simd_setval(const T value) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return value;
   }
 
   // [a] + [b]
   template<typename T>
-  inline
+  constexpr
   T simd_add(T a, T b)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a + b;
   }
 
   // [a] * [b]
   template<typename T>
-  inline
+  constexpr
   T simd_mul(T a, T b)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a * b;
   }
 
   // [a] - [b]
   template<typename T>
-  inline
+  constexpr
   T simd_sub(T a, T b)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a - b;
   }
 
   // [a] / [b]
   template<typename T>
-  inline
+  constexpr
   T simd_div(T a, T b)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a / b;
   }
 
   // sqrt([a])
   template<typename T>
-  inline
+  constexpr
   T simd_sqrt(T a)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return std::sqrt(a);
   }
 
   // [a] + ([b] * [c])
   template<typename T>
-  inline
+  constexpr
   T simd_addmul(T a, T b, T c)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a + b * c;
   }
 
   // [a] - ([b] * [c])
   template<typename T>
-  inline
+  constexpr
   T simd_submul(T a, T b, T c)
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a - b * c;
   }
 
   // [a] == [b]
   template<typename T>
-  inline
+  constexpr
   bool simd_eq(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a == b;
   }
 
   // [a] != [b]
   template<typename T>
-  inline
+  constexpr
   bool simd_neq(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a != b;
   }
 
   // [a] > [b]
   template<typename T>
-  inline
+  constexpr
   bool simd_gt(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a > b;
   }
 
   // [a] >= [b]
   template<typename T>
-  inline
+  constexpr
   bool simd_gte(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a >= b;
   }
 
   // [a] < [b]
   template<typename T>
-  inline
+  constexpr
   bool simd_lt(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a < b;
   }
 
   // [a] <= [b]
   template<typename T>
-  inline
+  constexpr
   bool simd_lte(T a, T b) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return a <= b;
   }
 
@@ -487,74 +495,74 @@ namespace Parallilos
   {
     // ![a]
     template<typename T, typename = _backend::_if_integral<T>>
-    inline
+    constexpr
     T simd_not(T a) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+      _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return !a;
     }
 
     // [a] & [b]
     template<typename T, typename = _backend::_if_integral<T>>
-    inline
+    constexpr
     T simd_and(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+      _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return a & b;
     }
 
     // !([a] & [b])
     template<typename T, typename = _backend::_if_integral<T>>
-    inline
+    constexpr
     T simd_nand(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+      _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return !(a & b);
     }
 
     // [a] | [b]
     template<typename T, typename = _backend::_if_integral<T>>
-    inline
+    constexpr
     T simd_or(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+      _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return a | b;
     }
 
     // !([a] | [b])
     template<typename T, typename = _backend::_if_integral<T>>
-    inline
+    constexpr
     T simd_nor(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+      _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return !(a | b);
     }
 
     // [a] ^ [b]
     template<typename T, typename = _backend::_if_integral<T>>
-    inline
+    constexpr
     T simd_xor(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+      _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return a ^ b;
     }
 
     // !([a] ^ [b])
     template<typename T, typename = _backend::_if_integral<T>>
-    inline
+    constexpr
     T simd_xnor(T a, T b) noexcept
     {
-      PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+      _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
       return !(a ^ b);
     }
   }
 
   // abs([a])
   template<typename T>
-  inline
+  constexpr
   T simd_abs(T a) noexcept
   {
-    PARALLILOS_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
+    _impl_ppz_LOG("type \"%s\" is not SIMD-supported", _backend::_type_name<T>());
     return std::abs(a);
   }
 
@@ -563,38 +571,39 @@ namespace Parallilos
   {
   static_assert(std::is_arithmetic<T>::value, "T in Array<T> must be an arithmetic type");
   public:
-    const T* data(const size_t k = 0)   const noexcept { return _array + k; }
-    T*       data(const size_t k = 0)         noexcept { return _array + k; }
-    size_t   size()                     const noexcept { return _numel; }
-    T        operator[](const size_t k) const noexcept { return _array[k]; }
-    T&       operator[](const size_t k)       noexcept { return _array[k]; }
-    operator T*()                             noexcept { return _array; }
-    T*       release()                        noexcept
+    constexpr const T* data(const size_t k = 0)   const noexcept { return _array + k; }
+    _impl_ppz_CONSTEXPR_CPP14 T*       data(const size_t k = 0)         noexcept { return _array + k; }
+    constexpr size_t   size()                     const noexcept { return _numel; }
+    constexpr T        operator[](const size_t k) const noexcept { return _array[k]; }
+    _impl_ppz_CONSTEXPR_CPP14 T&       operator[](const size_t k)       noexcept { return _array[k]; }
+    constexpr operator T*()                             noexcept { return _array; }
+    constexpr T*       release()                        noexcept
     {
       T* data = _array;
       _array  = nullptr;
       _numel  = 0;
       return data;
     }
-
+    
+    _impl_ppz_CONSTEXPR_CPP14
     Array(const size_t number_of_elements) noexcept :
       _array([number_of_elements]() -> T* {
-        if ((number_of_elements == 0)) PARALLILOS_COLD
+        if ((number_of_elements == 0)) _impl_ppz_COLD
         {
           return nullptr;
         }
 
-        if (SIMD<T>::alignment == 0) PARALLILOS_COLD
+        if (SIMD<T>::alignment == 0) _impl_ppz_COLD
         {
           return reinterpret_cast<T*>(std::malloc(number_of_elements * sizeof(T)));
         }
 
-#     if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
+#     if defined(_impl_ppz_HAS_ALIGNED_ALLOC)
         return reinterpret_cast<T*>(std::aligned_alloc(SIMD<T>::alignment, number_of_elements * sizeof(T)));
 #     else
         void* memory_block = std::malloc(number_of_elements * sizeof(T) + SIMD<T>::alignment);
 
-        if (memory_block == nullptr) PARALLILOS_COLD
+        if (memory_block == nullptr) _impl_ppz_COLD
         {
           return nullptr;
         }
@@ -611,13 +620,14 @@ namespace Parallilos
       }()),
       _numel(_array == nullptr ? 0 : number_of_elements)
     {
-      PARALLILOS_LOG("created array of size %u", unsigned(_numel));
+      _impl_ppz_LOG("created array of size %u", unsigned(_numel));
     }
 
+    _impl_ppz_CONSTEXPR_CPP14
     Array(const std::initializer_list<T> initializer_list) noexcept :
       Array(initializer_list.size())
     {
-      if (_numel != 0) PARALLILOS_HOT
+      if (_numel != 0) _impl_ppz_HOT
       {
         size_t k = 0;
         for (T value : initializer_list)
@@ -627,32 +637,34 @@ namespace Parallilos
       }
     }
     
+    _impl_ppz_CONSTEXPR_CPP14
     Array(Array&& other) noexcept :
       _array(other._array),
       _numel(other._numel)
     {
-      PARALLILOS_LOG("moved array of size %u", unsigned(_numel));
+      _impl_ppz_LOG("moved array of size %u", unsigned(_numel));
       other._array = nullptr;
       other._numel = 0;
     }
 
+    constexpr
     Array(const Array&) = delete; // copying is disallowed
 
     ~Array()
     {
-      if (_array != nullptr) PARALLILOS_HOT
+      if (_array != nullptr) _impl_ppz_HOT
       {
-#   if defined(PARALLILOS_HAS_ALIGNED_ALLOC)
+#   if defined(_impl_ppz_HAS_ALIGNED_ALLOC)
         std::free(_array);
 #   else
-        if (SIMD<T>::alignment != 0) PARALLILOS_HOT
+        if (SIMD<T>::alignment != 0) _impl_ppz_HOT
         {
           std::free(reinterpret_cast<void**>(_array)[-1]);
         }
         else std::free(_array);
 #   endif
       }
-      PARALLILOS_LOG("freed used memory");
+      _impl_ppz_LOG("freed used memory");
     }
 
     // interpret aligned array as a vector, k is an offset in elements into the array
@@ -668,7 +680,7 @@ namespace Parallilos
   namespace _backend
   {
     // T = type, V = vector type, M = mask type, A = alignment, S = sets used
-#   define PARALLILOS_MAKE_SIMD_SPECIALIZATION(T, V, M, A, S)                                  \
+#   define _impl_ppz_MAKE_SIMD_SPECIALIZATION(T, V, M, A, S)                                  \
       template<>                                                                               \
       class SIMD<T>                                                                            \
       {                                                                                        \
@@ -679,307 +691,309 @@ namespace Parallilos
         using Type = V;                                                                        \
         using Mask = M;                                                                        \
         static constexpr const char* set = S;                                                  \
-        static _backend::_parallel<size> parallel(const size_t n_elements) noexcept            \
+        static constexpr                                                                       \
+        _backend::_parallel<size> parallel(const size_t n_elements) noexcept                   \
         { return _backend::_parallel<size>{n_elements}; }                                      \
-        static _backend::_sequential<size> sequential(const size_t n_elements) noexcept        \
+        static constexpr                                                                       \
+        _backend::_sequential<size> sequential(const size_t n_elements) noexcept               \
         { return _backend::_sequential<size>{n_elements}; }                                    \
         SIMD() = delete;                                                                       \
       };
   }
 
-#if defined(PARALLILOS_AVX512F)
+#if defined(_impl_ppz_AVX512F)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
-# define PARALLILOS_F32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(float, __m512, __mmask16, 64, "AVX512F");
-# define PARALLILOS_F32_LOADU(data)           _mm512_loadu_ps(data)
-# define PARALLILOS_F32_LOADA(data)           _mm512_load_ps(data)
-# define PARALLILOS_F32_STOREU(addr, data)    _mm512_storeu_ps((Toid*)addr, data)
-# define PARALLILOS_F32_STOREA(addr, data)    _mm512_store_ps((Toid*)addr, data)
-# define PARALLILOS_F32_SETVAL(Talue)         _mm512_set1_ps(Talue)
-# define PARALLILOS_F32_SETZERO()             _mm512_setzero_ps()
-# define PARALLILOS_F32_MUL(a, b)             _mm512_mul_ps(a, b)
-# define PARALLILOS_F32_ADD(a, b)             _mm512_add_ps(a, b)
-# define PARALLILOS_F32_SUB(a, b)             _mm512_sub_ps(a, b)
-# define PARALLILOS_F32_DIV(a, b)             _mm512_div_ps(a, b)
-# define PARALLILOS_F32_SQRT(a)               _mm512_sqrt_ps(a)
-# define PARALLILOS_F32_ADDMUL(a, b, c)       _mm512_fmadd_ps(b, c, a)
-# define PARALLILOS_F32_SUBMUL(a, b, c)       _mm512_fnmadd_ps(a, b, c)
-# define PARALLILOS_F32_EQ(a, b)              _mm512_cmp_ps_mask(a, b, _CMP_EQ_UQ)
-# define PARALLILOS_F32_NEQ(a, b)             _mm512_cmp_ps_mask(a, b, _CMP_NEQ_UQ)
-# define PARALLILOS_F32_GT(a, b)              _mm512_cmp_ps_mask(a, b, _CMP_GT_OQ)
-# define PARALLILOS_F32_GTE(a, b)             _mm512_cmp_ps_mask(a, b, _CMP_GE_OQ)
-# define PARALLILOS_F32_LT(a, b)              _mm512_cmp_ps_mask(a, b, _CMP_LT_OQ)
-# define PARALLILOS_F32_LTE(a, b)             _mm512_cmp_ps_mask(a, b, _CMP_LE_OQ)
+# define _impl_ppz_F32
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(float, __m512, __mmask16, 64, "AVX512F");
+# define _impl_ppz_F32_LOADU(data)           _mm512_loadu_ps(data)
+# define _impl_ppz_F32_LOADA(data)           _mm512_load_ps(data)
+# define _impl_ppz_F32_STOREU(addr, data)    _mm512_storeu_ps((Toid*)addr, data)
+# define _impl_ppz_F32_STOREA(addr, data)    _mm512_store_ps((Toid*)addr, data)
+# define _impl_ppz_F32_SETVAL(value)         _mm512_set1_ps(value)
+# define _impl_ppz_F32_SETZERO()             _mm512_setzero_ps()
+# define _impl_ppz_F32_MUL(a, b)             _mm512_mul_ps(a, b)
+# define _impl_ppz_F32_ADD(a, b)             _mm512_add_ps(a, b)
+# define _impl_ppz_F32_SUB(a, b)             _mm512_sub_ps(a, b)
+# define _impl_ppz_F32_DIV(a, b)             _mm512_div_ps(a, b)
+# define _impl_ppz_F32_SQRT(a)               _mm512_sqrt_ps(a)
+# define _impl_ppz_F32_ADDMUL(a, b, c)       _mm512_fmadd_ps(b, c, a)
+# define _impl_ppz_F32_SUBMUL(a, b, c)       _mm512_fnmadd_ps(a, b, c)
+# define _impl_ppz_F32_EQ(a, b)              _mm512_cmp_ps_mask(a, b, _CMP_EQ_UQ)
+# define _impl_ppz_F32_NEQ(a, b)             _mm512_cmp_ps_mask(a, b, _CMP_NEQ_UQ)
+# define _impl_ppz_F32_GT(a, b)              _mm512_cmp_ps_mask(a, b, _CMP_GT_OQ)
+# define _impl_ppz_F32_GTE(a, b)             _mm512_cmp_ps_mask(a, b, _CMP_GE_OQ)
+# define _impl_ppz_F32_LT(a, b)              _mm512_cmp_ps_mask(a, b, _CMP_LT_OQ)
+# define _impl_ppz_F32_LTE(a, b)             _mm512_cmp_ps_mask(a, b, _CMP_LE_OQ)
 
-# define PARALLILOS_F32_ABS(a)                _mm512_abs_ps(a)
-#elif defined(PARALLILOS_FMA)
+# define _impl_ppz_F32_ABS(a)                _mm512_abs_ps(a)
+#elif defined(_impl_ppz_FMA)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
-# define PARALLILOS_F32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(float, __m256, __m256, 32, "AVX, FMA");
-# define PARALLILOS_F32_LOADU(data)           _mm256_loadu_ps(data)
-# define PARALLILOS_F32_LOADA(data)           _mm256_load_ps(data)
-# define PARALLILOS_F32_STOREU(addr, data)    _mm256_storeu_ps(addr, data)
-# define PARALLILOS_F32_STOREA(addr, data)    _mm256_store_ps(addr, data)
-# define PARALLILOS_F32_SETVAL(Talue)         _mm256_set1_ps(Talue)
-# define PARALLILOS_F32_SETZERO()             _mm256_setzero_ps()
-# define PARALLILOS_F32_MUL(a, b)             _mm256_mul_ps(a, b)
-# define PARALLILOS_F32_ADD(a, b)             _mm256_add_ps(a, b)
-# define PARALLILOS_F32_SUB(a, b)             _mm256_sub_ps(a, b)
-# define PARALLILOS_F32_DIV(a, b)             _mm256_div_ps(a, b)
-# define PARALLILOS_F32_SQRT(a)               _mm256_sqrt_ps(a)
-# define PARALLILOS_F32_ADDMUL(a, b, c)       _mm256_fmadd_ps(b, c, a)
-# define PARALLILOS_F32_SUBMUL(a, b, c)       _mm256_fnmadd_ps(a, b, c)
-# define PARALLILOS_F32_EQ(a, b)              _mm256_cmp_ps(a, b, _CMP_EQ_UQ)
-# define PARALLILOS_F32_NEQ(a, b)             _mm256_cmp_ps(a, b, _CMP_NEQ_UQ)
-# define PARALLILOS_F32_GT(a, b)              _mm256_cmp_ps(a, b, _CMP_GT_OQ)
-# define PARALLILOS_F32_GTE(a, b)             _mm256_cmp_ps(a, b, _CMP_GE_OQ)
-# define PARALLILOS_F32_LT(a, b)              _mm256_cmp_ps(a, b, _CMP_LT_OQ)
-# define PARALLILOS_F32_LTE(a, b)             _mm256_cmp_ps(a, b, _CMP_LE_OQ)
-# define PARALLILOS_F32_ABS(a)                _mm256_andnot_ps(_mm256_set1_ps(-0.0f), a)
-#elif defined(PARALLILOS_AVX)
+# define _impl_ppz_F32
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(float, __m256, __m256, 32, "AVX, FMA");
+# define _impl_ppz_F32_LOADU(data)           _mm256_loadu_ps(data)
+# define _impl_ppz_F32_LOADA(data)           _mm256_load_ps(data)
+# define _impl_ppz_F32_STOREU(addr, data)    _mm256_storeu_ps(addr, data)
+# define _impl_ppz_F32_STOREA(addr, data)    _mm256_store_ps(addr, data)
+# define _impl_ppz_F32_SETVAL(value)         _mm256_set1_ps(value)
+# define _impl_ppz_F32_SETZERO()             _mm256_setzero_ps()
+# define _impl_ppz_F32_MUL(a, b)             _mm256_mul_ps(a, b)
+# define _impl_ppz_F32_ADD(a, b)             _mm256_add_ps(a, b)
+# define _impl_ppz_F32_SUB(a, b)             _mm256_sub_ps(a, b)
+# define _impl_ppz_F32_DIV(a, b)             _mm256_div_ps(a, b)
+# define _impl_ppz_F32_SQRT(a)               _mm256_sqrt_ps(a)
+# define _impl_ppz_F32_ADDMUL(a, b, c)       _mm256_fmadd_ps(b, c, a)
+# define _impl_ppz_F32_SUBMUL(a, b, c)       _mm256_fnmadd_ps(a, b, c)
+# define _impl_ppz_F32_EQ(a, b)              _mm256_cmp_ps(a, b, _CMP_EQ_UQ)
+# define _impl_ppz_F32_NEQ(a, b)             _mm256_cmp_ps(a, b, _CMP_NEQ_UQ)
+# define _impl_ppz_F32_GT(a, b)              _mm256_cmp_ps(a, b, _CMP_GT_OQ)
+# define _impl_ppz_F32_GTE(a, b)             _mm256_cmp_ps(a, b, _CMP_GE_OQ)
+# define _impl_ppz_F32_LT(a, b)              _mm256_cmp_ps(a, b, _CMP_LT_OQ)
+# define _impl_ppz_F32_LTE(a, b)             _mm256_cmp_ps(a, b, _CMP_LE_OQ)
+# define _impl_ppz_F32_ABS(a)                _mm256_andnot_ps(_mm256_set1_ps(-0.0f), a)
+#elif defined(_impl_ppz_AVX)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
-# define PARALLILOS_F32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(float, __m256, __m256, 32, "AVX");
-# define PARALLILOS_F32_LOADU(data)           _mm256_loadu_ps(data)
-# define PARALLILOS_F32_LOADA(data)           _mm256_load_ps(data)
-# define PARALLILOS_F32_STOREU(addr, data)    _mm256_storeu_ps(addr, data)
-# define PARALLILOS_F32_STOREA(addr, data)    _mm256_store_ps(addr, data)
-# define PARALLILOS_F32_SETVAL(Talue)         _mm256_set1_ps(Talue)
-# define PARALLILOS_F32_SETZERO()             _mm256_setzero_ps()
-# define PARALLILOS_F32_MUL(a, b)             _mm256_mul_ps(a, b)
-# define PARALLILOS_F32_ADD(a, b)             _mm256_add_ps(a, b)
-# define PARALLILOS_F32_SUB(a, b)             _mm256_sub_ps(a, b)
-# define PARALLILOS_F32_DIV(a, b)             _mm256_div_ps(a, b)
-# define PARALLILOS_F32_SQRT(a)               _mm256_sqrt_ps(a)
-# define PARALLILOS_F32_ADDMUL(a, b, c)       _mm256_add_ps(a, _mm256_mul_ps(b, c))
-# define PARALLILOS_F32_SUBMUL(a, b, c)       _mm256_sub_ps(a, _mm256_mul_ps(b, c))
-# define PARALLILOS_F32_EQ(a, b)              _mm256_cmp_ps(a, b, _CMP_EQ_UQ)
-# define PARALLILOS_F32_NEQ(a, b)             _mm256_cmp_ps(a, b, _CMP_NEQ_UQ)
-# define PARALLILOS_F32_GT(a, b)              _mm256_cmp_ps(a, b, _CMP_GT_OQ)
-# define PARALLILOS_F32_GTE(a, b)             _mm256_cmp_ps(a, b, _CMP_GE_OQ)
-# define PARALLILOS_F32_LT(a, b)              _mm256_cmp_ps(a, b, _CMP_LT_OQ)
-# define PARALLILOS_F32_LTE(a, b)             _mm256_cmp_ps(a, b, _CMP_LE_OQ)
-# define PARALLILOS_F32_ABS(a)                _mm256_andnot_ps(_mm256_set1_ps(-0.0f), a)
-#elif defined(PARALLILOS_SSE)
+# define _impl_ppz_F32
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(float, __m256, __m256, 32, "AVX");
+# define _impl_ppz_F32_LOADU(data)           _mm256_loadu_ps(data)
+# define _impl_ppz_F32_LOADA(data)           _mm256_load_ps(data)
+# define _impl_ppz_F32_STOREU(addr, data)    _mm256_storeu_ps(addr, data)
+# define _impl_ppz_F32_STOREA(addr, data)    _mm256_store_ps(addr, data)
+# define _impl_ppz_F32_SETVAL(value)         _mm256_set1_ps(value)
+# define _impl_ppz_F32_SETZERO()             _mm256_setzero_ps()
+# define _impl_ppz_F32_MUL(a, b)             _mm256_mul_ps(a, b)
+# define _impl_ppz_F32_ADD(a, b)             _mm256_add_ps(a, b)
+# define _impl_ppz_F32_SUB(a, b)             _mm256_sub_ps(a, b)
+# define _impl_ppz_F32_DIV(a, b)             _mm256_div_ps(a, b)
+# define _impl_ppz_F32_SQRT(a)               _mm256_sqrt_ps(a)
+# define _impl_ppz_F32_ADDMUL(a, b, c)       _mm256_add_ps(a, _mm256_mul_ps(b, c))
+# define _impl_ppz_F32_SUBMUL(a, b, c)       _mm256_sub_ps(a, _mm256_mul_ps(b, c))
+# define _impl_ppz_F32_EQ(a, b)              _mm256_cmp_ps(a, b, _CMP_EQ_UQ)
+# define _impl_ppz_F32_NEQ(a, b)             _mm256_cmp_ps(a, b, _CMP_NEQ_UQ)
+# define _impl_ppz_F32_GT(a, b)              _mm256_cmp_ps(a, b, _CMP_GT_OQ)
+# define _impl_ppz_F32_GTE(a, b)             _mm256_cmp_ps(a, b, _CMP_GE_OQ)
+# define _impl_ppz_F32_LT(a, b)              _mm256_cmp_ps(a, b, _CMP_LT_OQ)
+# define _impl_ppz_F32_LTE(a, b)             _mm256_cmp_ps(a, b, _CMP_LE_OQ)
+# define _impl_ppz_F32_ABS(a)                _mm256_andnot_ps(_mm256_set1_ps(-0.0f), a)
+#elif defined(_impl_ppz_SSE)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
-# define PARALLILOS_F32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(float, __m128, __m128, 16, "SSE");
-# define PARALLILOS_F32_LOADU(data)           _mm_loadu_ps(data)
-# define PARALLILOS_F32_LOADA(data)           _mm_load_ps(data)
-# define PARALLILOS_F32_STOREU(addr, data)    _mm_storeu_ps(addr, data)
-# define PARALLILOS_F32_STOREA(addr, data)    _mm_store_ps(addr, data)
-# define PARALLILOS_F32_SETVAL(Talue)         _mm_set1_ps(Talue)
-# define PARALLILOS_F32_SETZERO()             _mm_setzero_ps()
-# define PARALLILOS_F32_MUL(a, b)             _mm_mul_ps(a, b)
-# define PARALLILOS_F32_ADD(a, b)             _mm_add_ps(a, b)
-# define PARALLILOS_F32_SUB(a, b)             _mm_sub_ps(a, b)
-# define PARALLILOS_F32_DIV(a, b)             _mm_div_ps(a, b)
-# define PARALLILOS_F32_SQRT(a)               _mm_sqrt_ps(a)
-# define PARALLILOS_F32_ADDMUL(a, b, c)       _mm_add_ps(a, _mm_mul_ps(b, c))
-# define PARALLILOS_F32_SUBMUL(a, b, c)       _mm_sub_ps(a, _mm_mul_ps(b, c))
-# define PARALLILOS_F32_EQ(a, b)              _mm_cmpeq_ps (a, b)
-# define PARALLILOS_F32_NEQ(a, b)             _mm_cmpneq_ps (a, b)
-# define PARALLILOS_F32_GT(a, b)              _mm_cmpgt_ps(a, b)
-# define PARALLILOS_F32_GTE(a, b)             _mm_cmpge_ps(a, b)
-# define PARALLILOS_F32_LT(a, b)              _mm_cmplt_ps(a, b)
-# define PARALLILOS_F32_LTE(a, b)             _mm_cmple_ps(a, b)
-# define PARALLILOS_F32_ABS(a)                _mm_andnot_ps(_mm_set1_ps(-0.0f), a)
-// #elif defined(PARALLILOS_NEON) or defined(PARALLILOS_NEON64)
+# define _impl_ppz_F32
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(float, __m128, __m128, 16, "SSE");
+# define _impl_ppz_F32_LOADU(data)           _mm_loadu_ps(data)
+# define _impl_ppz_F32_LOADA(data)           _mm_load_ps(data)
+# define _impl_ppz_F32_STOREU(addr, data)    _mm_storeu_ps(addr, data)
+# define _impl_ppz_F32_STOREA(addr, data)    _mm_store_ps(addr, data)
+# define _impl_ppz_F32_SETVAL(value)         _mm_set1_ps(value)
+# define _impl_ppz_F32_SETZERO()             _mm_setzero_ps()
+# define _impl_ppz_F32_MUL(a, b)             _mm_mul_ps(a, b)
+# define _impl_ppz_F32_ADD(a, b)             _mm_add_ps(a, b)
+# define _impl_ppz_F32_SUB(a, b)             _mm_sub_ps(a, b)
+# define _impl_ppz_F32_DIV(a, b)             _mm_div_ps(a, b)
+# define _impl_ppz_F32_SQRT(a)               _mm_sqrt_ps(a)
+# define _impl_ppz_F32_ADDMUL(a, b, c)       _mm_add_ps(a, _mm_mul_ps(b, c))
+# define _impl_ppz_F32_SUBMUL(a, b, c)       _mm_sub_ps(a, _mm_mul_ps(b, c))
+# define _impl_ppz_F32_EQ(a, b)              _mm_cmpeq_ps (a, b)
+# define _impl_ppz_F32_NEQ(a, b)             _mm_cmpneq_ps (a, b)
+# define _impl_ppz_F32_GT(a, b)              _mm_cmpgt_ps(a, b)
+# define _impl_ppz_F32_GTE(a, b)             _mm_cmpge_ps(a, b)
+# define _impl_ppz_F32_LT(a, b)              _mm_cmplt_ps(a, b)
+# define _impl_ppz_F32_LTE(a, b)             _mm_cmple_ps(a, b)
+# define _impl_ppz_F32_ABS(a)                _mm_andnot_ps(_mm_set1_ps(-0.0f), a)
+// #elif defined(_impl_ppz_NEON) or defined(_impl_ppz_NEON64)
 //   static_assert(sizeof(float) == 4, "float must be 32 bit");
-// # define PARALLILOS_F32
-//   PARALLILOS_MAKE_SIMD_SPECIALIZATION(float, float32x4_t, uint32x4_t, 0, "NEON");
-// # define PARALLILOS_F32_LOADU(data)           vld1q_f32(data)
-// # define PARALLILOS_F32_LOADA(data)           vld1q_f32(data)
-// # define PARALLILOS_F32_STOREU(addr, data)    vst1q_f32(addr, data)
-// # define PARALLILOS_F32_STOREA(addr, data)    vst1q_f32(addr, data)
-// # define PARALLILOS_F32_SETVAL(Talue)         vdupq_n_f32(Talue)
-// # define PARALLILOS_F32_SETZERO()             vdupq_n_f32(0.0f)
-// # define PARALLILOS_F32_MUL(a, b)             vmulq_f32(a, b)
-// # define PARALLILOS_F32_ADD(a, b)             vaddq_f32(a, b)
-// # define PARALLILOS_F32_SUB(a, b)             vsubq_f32(a, b)
-// # define PARALLILOS_F32_DIV(a, b)             vdivq_f32(a, b)
-// # define PARALLILOS_F32_SQRT(a)               vsqrtq_f32(a)
-// # define PARALLILOS_F32_ADDMUL(a, b, c)       vmlaq_f32(a, b, c)
-// # define PARALLILOS_F32_SUBMUL(a, b, c)       vmlsq_f32(a, b, c)
-// # define PARALLILOS_F32_EQ(a, b)              vceqq_f32(a, b)
-// # define PARALLILOS_F32_NEQ(a, b)             vmvnq_u32(Tceqq_f32(a, b))
-// # define PARALLILOS_F32_GT(a, b)              vcgtq_f32(a, b)
-// # define PARALLILOS_F32_GTE(a, b)             vcgeq_f32(a, b)
-// # define PARALLILOS_F32_LT(a, b)              vcltq_f32(a, b)
-// # define PARALLILOS_F32_LTE(a, b)             vcleq_f32(a, b)
+// # define _impl_ppz_F32
+//   _impl_ppz_MAKE_SIMD_SPECIALIZATION(float, float32x4_t, uint32x4_t, 0, "NEON");
+// # define _impl_ppz_F32_LOADU(data)           vld1q_f32(data)
+// # define _impl_ppz_F32_LOADA(data)           vld1q_f32(data)
+// # define _impl_ppz_F32_STOREU(addr, data)    vst1q_f32(addr, data)
+// # define _impl_ppz_F32_STOREA(addr, data)    vst1q_f32(addr, data)
+// # define _impl_ppz_F32_SETVAL(value)         vdupq_n_f32(value)
+// # define _impl_ppz_F32_SETZERO()             vdupq_n_f32(0.0f)
+// # define _impl_ppz_F32_MUL(a, b)             vmulq_f32(a, b)
+// # define _impl_ppz_F32_ADD(a, b)             vaddq_f32(a, b)
+// # define _impl_ppz_F32_SUB(a, b)             vsubq_f32(a, b)
+// # define _impl_ppz_F32_DIV(a, b)             vdivq_f32(a, b)
+// # define _impl_ppz_F32_SQRT(a)               vsqrtq_f32(a)
+// # define _impl_ppz_F32_ADDMUL(a, b, c)       vmlaq_f32(a, b, c)
+// # define _impl_ppz_F32_SUBMUL(a, b, c)       vmlsq_f32(a, b, c)
+// # define _impl_ppz_F32_EQ(a, b)              vceqq_f32(a, b)
+// # define _impl_ppz_F32_NEQ(a, b)             vmvnq_u32(Tceqq_f32(a, b))
+// # define _impl_ppz_F32_GT(a, b)              vcgtq_f32(a, b)
+// # define _impl_ppz_F32_GTE(a, b)             vcgeq_f32(a, b)
+// # define _impl_ppz_F32_LT(a, b)              vcltq_f32(a, b)
+// # define _impl_ppz_F32_LTE(a, b)             vcleq_f32(a, b)
 
-// # define PARALLILOS_F32_ABS(a)                vabsq_f32(a)
+// # define _impl_ppz_F32_ABS(a)                vabsq_f32(a)
 #endif
 
-#ifdef PARALLILOS_F32
+#ifdef _impl_ppz_F32
   // load a vector with zeros
   template<>
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_setzero<float>() noexcept
   {
-    return PARALLILOS_F32_SETZERO();
-#   undef  PARALLILOS_F32_SETZERO
+    return _impl_ppz_F32_SETZERO();
+#   undef  _impl_ppz_F32_SETZERO
   }
 
   // load a vector from unaligned data
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_loadu(const float data[]) noexcept
   {
-    return PARALLILOS_F32_LOADU(data);
-#   undef  PARALLILOS_F32_LOADU
+    return _impl_ppz_F32_LOADU(data);
+#   undef  _impl_ppz_F32_LOADU
   }
 
   // load a vector from aligned data
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_loada(const float data[]) noexcept
   {
-    return PARALLILOS_F32_LOADA(data);
-#   undef  PARALLILOS_F32_LOADA
+    return _impl_ppz_F32_LOADA(data);
+#   undef  _impl_ppz_F32_LOADA
   }
 
   // store a vector into unaligned memory
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   void simd_storeu(float addr[], const SIMD<float>::Type& data)
   {
-    PARALLILOS_F32_STOREU(addr, data);
-#   undef PARALLILOS_F32_STOREU
+    _impl_ppz_F32_STOREU(addr, data);
+#   undef _impl_ppz_F32_STOREU
   }
 
   // store a vector into aligned memory
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   void simd_storea(float addr[], const SIMD<float>::Type& data)
   {
-    PARALLILOS_F32_STOREA(addr, data);
-#   undef PARALLILOS_F32_STOREA
+    _impl_ppz_F32_STOREA(addr, data);
+#   undef _impl_ppz_F32_STOREA
   }
 
   // load a vector with a specific value
   template<>
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_setval(const float value) noexcept
   {
-    return PARALLILOS_F32_SETVAL(value);
-#   undef  PARALLILOS_F32_SETVAL
+    return _impl_ppz_F32_SETVAL(value);
+#   undef  _impl_ppz_F32_SETVAL
   }
 
   // [a] + [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_add(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_ADD(a, b);
-#   undef  PARALLILOS_F32_ADD
+    return _impl_ppz_F32_ADD(a, b);
+#   undef  _impl_ppz_F32_ADD
   }
 
   // [a] * [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_mul(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_MUL(a, b);
-#   undef  PARALLILOS_F32_MUL
+    return _impl_ppz_F32_MUL(a, b);
+#   undef  _impl_ppz_F32_MUL
   }
 
   // [a] - [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_sub(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_SUB(a, b);
-#   undef  PARALLILOS_F32_SUB
+    return _impl_ppz_F32_SUB(a, b);
+#   undef  _impl_ppz_F32_SUB
   }
 
   // [a] / [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_div(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_DIV(a, b);
-#   undef  PARALLILOS_F32_DIV
+    return _impl_ppz_F32_DIV(a, b);
+#   undef  _impl_ppz_F32_DIV
   }
 
   // sqrt([a])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_sqrt(const SIMD<float>::Type& a) noexcept
   {
-    return PARALLILOS_F32_SQRT(a);
-#   undef  PARALLILOS_F32_SQRT
+    return _impl_ppz_F32_SQRT(a);
+#   undef  _impl_ppz_F32_SQRT
   }
 
   // [a] + ([b] * [c])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_addmul(const SIMD<float>::Type& a, const SIMD<float>::Type& b, const SIMD<float>::Type& c) noexcept
   {
-    return PARALLILOS_F32_ADDMUL(a, b, c);
-#   undef  PARALLILOS_F32_ADDMUL
+    return _impl_ppz_F32_ADDMUL(a, b, c);
+#   undef  _impl_ppz_F32_ADDMUL
   }
 
   // [a] - ([b] * [c])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_submul(const SIMD<float>::Type& a, const SIMD<float>::Type& b, const SIMD<float>::Type& c) noexcept
   {
-    return PARALLILOS_F32_SUBMUL(a, b, c);
-#   undef  PARALLILOS_F32_SUBMUL
+    return _impl_ppz_F32_SUBMUL(a, b, c);
+#   undef  _impl_ppz_F32_SUBMUL
   }
 
   // [a] == [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Mask simd_eq(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_EQ(a, b);
-#   undef  PARALLILOS_F32_EQ
+    return _impl_ppz_F32_EQ(a, b);
+#   undef  _impl_ppz_F32_EQ
   }
 
   // [a] != [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Mask simd_neq(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_NEQ(a, b);
-#   undef  PARALLILOS_F32_NEQ
+    return _impl_ppz_F32_NEQ(a, b);
+#   undef  _impl_ppz_F32_NEQ
   }
 
   // [a] > [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Mask simd_gt(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_GT(a, b);
-#   undef  PARALLILOS_F32_GT
+    return _impl_ppz_F32_GT(a, b);
+#   undef  _impl_ppz_F32_GT
   }
 
   // [a] >= [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Mask simd_gte(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_GTE(a, b);
-#   undef  PARALLILOS_F32_GTE
+    return _impl_ppz_F32_GTE(a, b);
+#   undef  _impl_ppz_F32_GTE
   }
 
   // [a] < [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Mask simd_lt(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_LT(a, b);
-#   undef  PARALLILOS_F32_LT
+    return _impl_ppz_F32_LT(a, b);
+#   undef  _impl_ppz_F32_LT
   }
 
   // [a] <= [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Mask simd_lte(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
-    return PARALLILOS_F32_LTE(a, b);
-#   undef  PARALLILOS_F32_LTE
+    return _impl_ppz_F32_LTE(a, b);
+#   undef  _impl_ppz_F32_LTE
   }
 
   // abs([a])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<float>::Type simd_abs(const SIMD<float>::Type& a) noexcept
   {
-    return PARALLILOS_F32_ABS(a);
-#   undef  PARALLILOS_F32_ABS
+    return _impl_ppz_F32_ABS(a);
+#   undef  _impl_ppz_F32_ABS
   }
 
-  inline
+  inline _impl_ppz_CONSTEXPR_CPP14
   std::ostream& operator<<(std::ostream& ostream, const SIMD<float>::Type& vector) noexcept
   {
     for (unsigned k = 0; k < SIMD<float>::size; ++k)
     {
-      if (k != 0) PARALLILOS_HOT
+      if (k != 0) _impl_ppz_HOT
       {
         ostream << ' ';
       }
@@ -991,302 +1005,302 @@ namespace Parallilos
   }
 #endif
 
-#if defined(PARALLILOS_AVX512F)
-# define PARALLILOS_F64
+#if defined(_impl_ppz_AVX512F)
+# define _impl_ppz_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(double, __m512d, __mmask8, 64, "AVX512F");
-# define PARALLILOS_F64_LOADU(data)           _mm512_loadu_pd(data)
-# define PARALLILOS_F64_LOADA(data)           _mm512_load_pd(data)
-# define PARALLILOS_F64_STOREU(addr, data)    _mm512_storeu_pd((Toid*)addr, data)
-# define PARALLILOS_F64_STOREA(addr, data)    _mm512_store_pd((Toid*)addr, data)
-# define PARALLILOS_F64_SETVAL(Talue)         _mm512_set1_pd(Talue)
-# define PARALLILOS_F64_SETZERO()             _mm512_setzero_pd()
-# define PARALLILOS_F64_MUL(a, b)             _mm512_mul_pd(a, b)
-# define PARALLILOS_F64_ADD(a, b)             _mm512_add_pd(a, b)
-# define PARALLILOS_F64_SUB(a, b)             _mm512_sub_pd(a, b)
-# define PARALLILOS_F64_DIV(a, b)             _mm512_div_pd(a, b)
-# define PARALLILOS_F64_SQRT(a)               _mm512_sqrt_pd(a)
-# define PARALLILOS_F64_ADDMUL(a, b, c)       _mm512_fmadd_pd(b, c, a)
-# define PARALLILOS_F64_SUBMUL(a, b, c)       _mm512_fnmadd_pd(a, b, c)
-# define PARALLILOS_F64_EQ(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_EQ_UQ)
-# define PARALLILOS_F64_NEQ(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_NEQ_UQ)
-# define PARALLILOS_F64_GT(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_GT_OQ)
-# define PARALLILOS_F64_GTE(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_GE_OQ)
-# define PARALLILOS_F64_LT(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_LT_OQ)
-# define PARALLILOS_F64_LTE(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_LE_OQ)
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(double, __m512d, __mmask8, 64, "AVX512F");
+# define _impl_ppz_F64_LOADU(data)           _mm512_loadu_pd(data)
+# define _impl_ppz_F64_LOADA(data)           _mm512_load_pd(data)
+# define _impl_ppz_F64_STOREU(addr, data)    _mm512_storeu_pd((Toid*)addr, data)
+# define _impl_ppz_F64_STOREA(addr, data)    _mm512_store_pd((Toid*)addr, data)
+# define _impl_ppz_F64_SETVAL(value)         _mm512_set1_pd(value)
+# define _impl_ppz_F64_SETZERO()             _mm512_setzero_pd()
+# define _impl_ppz_F64_MUL(a, b)             _mm512_mul_pd(a, b)
+# define _impl_ppz_F64_ADD(a, b)             _mm512_add_pd(a, b)
+# define _impl_ppz_F64_SUB(a, b)             _mm512_sub_pd(a, b)
+# define _impl_ppz_F64_DIV(a, b)             _mm512_div_pd(a, b)
+# define _impl_ppz_F64_SQRT(a)               _mm512_sqrt_pd(a)
+# define _impl_ppz_F64_ADDMUL(a, b, c)       _mm512_fmadd_pd(b, c, a)
+# define _impl_ppz_F64_SUBMUL(a, b, c)       _mm512_fnmadd_pd(a, b, c)
+# define _impl_ppz_F64_EQ(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_EQ_UQ)
+# define _impl_ppz_F64_NEQ(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_NEQ_UQ)
+# define _impl_ppz_F64_GT(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_GT_OQ)
+# define _impl_ppz_F64_GTE(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_GE_OQ)
+# define _impl_ppz_F64_LT(a, b)              _mm512_cmp_pd_mask(a, b, _CMP_LT_OQ)
+# define _impl_ppz_F64_LTE(a, b)             _mm512_cmp_pd_mask(a, b, _CMP_LE_OQ)
 
-# define PARALLILOS_F64_ABS(a)                _mm512_abs_pd(a)
-#elif defined(PARALLILOS_FMA)
-# define PARALLILOS_F64
+# define _impl_ppz_F64_ABS(a)                _mm512_abs_pd(a)
+#elif defined(_impl_ppz_FMA)
+# define _impl_ppz_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(double, __m256d, __m256d, 32, "AVX, FMA");
-# define PARALLILOS_F64_LOADU(data)           _mm256_loadu_pd(data)
-# define PARALLILOS_F64_LOADA(data)           _mm256_load_pd(data)
-# define PARALLILOS_F64_STOREU(addr, data)    _mm256_storeu_pd(addr, data)
-# define PARALLILOS_F64_STOREA(addr, data)    _mm256_store_pd(addr, data)
-# define PARALLILOS_F64_SETVAL(Talue)         _mm256_set1_pd(Talue)
-# define PARALLILOS_F64_SETZERO()             _mm256_setzero_pd()
-# define PARALLILOS_F64_MUL(a, b)             _mm256_mul_pd(a, b)
-# define PARALLILOS_F64_ADD(a, b)             _mm256_add_pd(a, b)
-# define PARALLILOS_F64_SUB(a, b)             _mm256_sub_pd(a, b)
-# define PARALLILOS_F64_DIV(a, b)             _mm256_div_pd(a, b)
-# define PARALLILOS_F64_SQRT(a)               _mm256_sqrt_pd(a)
-# define PARALLILOS_F64_ADDMUL(a, b, c)       _mm256_fmadd_pd(b, c, a)
-# define PARALLILOS_F64_SUBMUL(a, b, c)       _mm256_fnmadd_pd(a, b, c)
-# define PARALLILOS_F64_EQ(a, b)              _mm256_cmp_pd(a, b, _CMP_EQ_UQ)
-# define PARALLILOS_F64_NEQ(a, b)             _mm256_cmp_pd(a, b, _CMP_NEQ_UQ)
-# define PARALLILOS_F64_GT(a, b)              _mm256_cmp_pd(a, b, _CMP_GT_OQ)
-# define PARALLILOS_F64_GTE(a, b)             _mm256_cmp_pd(a, b, _CMP_GE_OQ)
-# define PARALLILOS_F64_LT(a, b)              _mm256_cmp_pd(a, b, _CMP_LT_OQ)
-# define PARALLILOS_F64_LTE(a, b)             _mm256_cmp_pd(a, b, _CMP_LE_OQ)
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(double, __m256d, __m256d, 32, "AVX, FMA");
+# define _impl_ppz_F64_LOADU(data)           _mm256_loadu_pd(data)
+# define _impl_ppz_F64_LOADA(data)           _mm256_load_pd(data)
+# define _impl_ppz_F64_STOREU(addr, data)    _mm256_storeu_pd(addr, data)
+# define _impl_ppz_F64_STOREA(addr, data)    _mm256_store_pd(addr, data)
+# define _impl_ppz_F64_SETVAL(value)         _mm256_set1_pd(value)
+# define _impl_ppz_F64_SETZERO()             _mm256_setzero_pd()
+# define _impl_ppz_F64_MUL(a, b)             _mm256_mul_pd(a, b)
+# define _impl_ppz_F64_ADD(a, b)             _mm256_add_pd(a, b)
+# define _impl_ppz_F64_SUB(a, b)             _mm256_sub_pd(a, b)
+# define _impl_ppz_F64_DIV(a, b)             _mm256_div_pd(a, b)
+# define _impl_ppz_F64_SQRT(a)               _mm256_sqrt_pd(a)
+# define _impl_ppz_F64_ADDMUL(a, b, c)       _mm256_fmadd_pd(b, c, a)
+# define _impl_ppz_F64_SUBMUL(a, b, c)       _mm256_fnmadd_pd(a, b, c)
+# define _impl_ppz_F64_EQ(a, b)              _mm256_cmp_pd(a, b, _CMP_EQ_UQ)
+# define _impl_ppz_F64_NEQ(a, b)             _mm256_cmp_pd(a, b, _CMP_NEQ_UQ)
+# define _impl_ppz_F64_GT(a, b)              _mm256_cmp_pd(a, b, _CMP_GT_OQ)
+# define _impl_ppz_F64_GTE(a, b)             _mm256_cmp_pd(a, b, _CMP_GE_OQ)
+# define _impl_ppz_F64_LT(a, b)              _mm256_cmp_pd(a, b, _CMP_LT_OQ)
+# define _impl_ppz_F64_LTE(a, b)             _mm256_cmp_pd(a, b, _CMP_LE_OQ)
 
-# define PARALLILOS_F64_ABS(a)                _mm256_andnot_pd(_mm256_set1_pd(-0.0), a)
-#elif defined(PARALLILOS_AVX)
-# define PARALLILOS_F64
+# define _impl_ppz_F64_ABS(a)                _mm256_andnot_pd(_mm256_set1_pd(-0.0), a)
+#elif defined(_impl_ppz_AVX)
+# define _impl_ppz_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(double, __m256d, __m256d, 32, "AVX");
-# define PARALLILOS_F64_LOADU(data)           _mm256_loadu_pd(data)
-# define PARALLILOS_F64_LOADA(data)           _mm256_load_pd(data)
-# define PARALLILOS_F64_STOREU(addr, data)    _mm256_storeu_pd(addr, data)
-# define PARALLILOS_F64_STOREA(addr, data)    _mm256_store_pd(addr, data)
-# define PARALLILOS_F64_SETVAL(Talue)         _mm256_set1_pd(Talue)
-# define PARALLILOS_F64_SETZERO()             _mm256_setzero_pd()
-# define PARALLILOS_F64_MUL(a, b)             _mm256_mul_pd(a, b)
-# define PARALLILOS_F64_ADD(a, b)             _mm256_add_pd(a, b)
-# define PARALLILOS_F64_SUB(a, b)             _mm256_sub_pd(a, b)
-# define PARALLILOS_F64_DIV(a, b)             _mm256_div_pd(a, b)
-# define PARALLILOS_F64_SQRT(a)               _mm256_sqrt_pd(a)
-# define PARALLILOS_F64_ADDMUL(a, b, c)       _mm256_add_pd(a, _mm256_mul_pd(b, c))
-# define PARALLILOS_F64_SUBMUL(a, b, c)       _mm256_sub_pd(a, _mm256_mul_pd(b, c))
-# define PARALLILOS_F64_EQ(a, b)              _mm256_cmp_pd(a, b, _CMP_EQ_UQ)
-# define PARALLILOS_F64_NEQ(a, b)             _mm256_cmp_pd(a, b, _CMP_NEQ_UQ)
-# define PARALLILOS_F64_GT(a, b)              _mm256_cmp_pd(a, b, _CMP_GT_OQ)
-# define PARALLILOS_F64_GTE(a, b)             _mm256_cmp_pd(a, b, _CMP_GE_OQ)
-# define PARALLILOS_F64_LT(a, b)              _mm256_cmp_pd(a, b, _CMP_LT_OQ)
-# define PARALLILOS_F64_LTE(a, b)             _mm256_cmp_pd(a, b, _CMP_LE_OQ)
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(double, __m256d, __m256d, 32, "AVX");
+# define _impl_ppz_F64_LOADU(data)           _mm256_loadu_pd(data)
+# define _impl_ppz_F64_LOADA(data)           _mm256_load_pd(data)
+# define _impl_ppz_F64_STOREU(addr, data)    _mm256_storeu_pd(addr, data)
+# define _impl_ppz_F64_STOREA(addr, data)    _mm256_store_pd(addr, data)
+# define _impl_ppz_F64_SETVAL(value)         _mm256_set1_pd(value)
+# define _impl_ppz_F64_SETZERO()             _mm256_setzero_pd()
+# define _impl_ppz_F64_MUL(a, b)             _mm256_mul_pd(a, b)
+# define _impl_ppz_F64_ADD(a, b)             _mm256_add_pd(a, b)
+# define _impl_ppz_F64_SUB(a, b)             _mm256_sub_pd(a, b)
+# define _impl_ppz_F64_DIV(a, b)             _mm256_div_pd(a, b)
+# define _impl_ppz_F64_SQRT(a)               _mm256_sqrt_pd(a)
+# define _impl_ppz_F64_ADDMUL(a, b, c)       _mm256_add_pd(a, _mm256_mul_pd(b, c))
+# define _impl_ppz_F64_SUBMUL(a, b, c)       _mm256_sub_pd(a, _mm256_mul_pd(b, c))
+# define _impl_ppz_F64_EQ(a, b)              _mm256_cmp_pd(a, b, _CMP_EQ_UQ)
+# define _impl_ppz_F64_NEQ(a, b)             _mm256_cmp_pd(a, b, _CMP_NEQ_UQ)
+# define _impl_ppz_F64_GT(a, b)              _mm256_cmp_pd(a, b, _CMP_GT_OQ)
+# define _impl_ppz_F64_GTE(a, b)             _mm256_cmp_pd(a, b, _CMP_GE_OQ)
+# define _impl_ppz_F64_LT(a, b)              _mm256_cmp_pd(a, b, _CMP_LT_OQ)
+# define _impl_ppz_F64_LTE(a, b)             _mm256_cmp_pd(a, b, _CMP_LE_OQ)
 
-# define PARALLILOS_F64_ABS(a)                _mm256_andnot_pd(_mm256_set1_pd(-0.0), a)
-#elif defined(PARALLILOS_SSE2)
-# define PARALLILOS_F64
+# define _impl_ppz_F64_ABS(a)                _mm256_andnot_pd(_mm256_set1_pd(-0.0), a)
+#elif defined(_impl_ppz_SSE2)
+# define _impl_ppz_F64
   static_assert(sizeof(double) == 8, "float must be 64 bit");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(double, __m128d, __m128d, 16, "SSE2");
-# define PARALLILOS_F64_LOADU(data)           _mm_loadu_pd(data)
-# define PARALLILOS_F64_LOADA(data)           _mm_load_pd(data)
-# define PARALLILOS_F64_STOREU(addr, data)    _mm_storeu_pd(addr, data)
-# define PARALLILOS_F64_STOREA(addr, data)    _mm_store_pd(addr, data)
-# define PARALLILOS_F64_SETVAL(Talue)         _mm_set1_pd(Talue)
-# define PARALLILOS_F64_SETZERO()             _mm_setzero_pd()
-# define PARALLILOS_F64_MUL(a, b)             _mm_mul_pd(a, b)
-# define PARALLILOS_F64_ADD(a, b)             _mm_add_pd(a, b)
-# define PARALLILOS_F64_SUB(a, b)             _mm_sub_pd(a, b)
-# define PARALLILOS_F64_DIV(a, b)             _mm_div_pd(a, b)
-# define PARALLILOS_F64_SQRT(a)               _mm_sqrt_pd(a)
-# define PARALLILOS_F64_ADDMUL(a, b, c)       _mm_add_pd(a, _mm_mul_pd(b, c))
-# define PARALLILOS_F64_SUBMUL(a, b, c)       _mm_sub_pd(a, _mm_mul_pd(b, c))
-# define PARALLILOS_F64_EQ(a, b)              _mm_cmpeq_pd(a, b)
-# define PARALLILOS_F64_NEQ(a, b)             _mm_cmpneq_pd(a, b)
-# define PARALLILOS_F64_GT(a, b)              _mm_cmpgt_pd(a, b)
-# define PARALLILOS_F64_GTE(a, b)             _mm_cmpge_pd(a, b)
-# define PARALLILOS_F64_LT(a, b)              _mm_cmplt_pd(a, b)
-# define PARALLILOS_F64_LTE(a, b)             _mm_cmple_pd(a, b)
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(double, __m128d, __m128d, 16, "SSE2");
+# define _impl_ppz_F64_LOADU(data)           _mm_loadu_pd(data)
+# define _impl_ppz_F64_LOADA(data)           _mm_load_pd(data)
+# define _impl_ppz_F64_STOREU(addr, data)    _mm_storeu_pd(addr, data)
+# define _impl_ppz_F64_STOREA(addr, data)    _mm_store_pd(addr, data)
+# define _impl_ppz_F64_SETVAL(value)         _mm_set1_pd(value)
+# define _impl_ppz_F64_SETZERO()             _mm_setzero_pd()
+# define _impl_ppz_F64_MUL(a, b)             _mm_mul_pd(a, b)
+# define _impl_ppz_F64_ADD(a, b)             _mm_add_pd(a, b)
+# define _impl_ppz_F64_SUB(a, b)             _mm_sub_pd(a, b)
+# define _impl_ppz_F64_DIV(a, b)             _mm_div_pd(a, b)
+# define _impl_ppz_F64_SQRT(a)               _mm_sqrt_pd(a)
+# define _impl_ppz_F64_ADDMUL(a, b, c)       _mm_add_pd(a, _mm_mul_pd(b, c))
+# define _impl_ppz_F64_SUBMUL(a, b, c)       _mm_sub_pd(a, _mm_mul_pd(b, c))
+# define _impl_ppz_F64_EQ(a, b)              _mm_cmpeq_pd(a, b)
+# define _impl_ppz_F64_NEQ(a, b)             _mm_cmpneq_pd(a, b)
+# define _impl_ppz_F64_GT(a, b)              _mm_cmpgt_pd(a, b)
+# define _impl_ppz_F64_GTE(a, b)             _mm_cmpge_pd(a, b)
+# define _impl_ppz_F64_LT(a, b)              _mm_cmplt_pd(a, b)
+# define _impl_ppz_F64_LTE(a, b)             _mm_cmple_pd(a, b)
 
-# define PARALLILOS_F64_ABS(a)                _mm_andnot_pd(_mm_set1_pd(-0.0), a)
-// #elif defined(PARALLILOS_NEON) or defined(PARALLILOS_NEON64)
-// # define PARALLILOS_F64
+# define _impl_ppz_F64_ABS(a)                _mm_andnot_pd(_mm_set1_pd(-0.0), a)
+// #elif defined(_impl_ppz_NEON) or defined(_impl_ppz_NEON64)
+// # define _impl_ppz_F64
 //   static_assert(sizeof(double) == 8, "float must be 64 bit");
-//   PARALLILOS_MAKE_SIMD_SPECIALIZATION(double, float64x4_t, float64x4_t, 0, "NEON");
-// # define PARALLILOS_F64_LOADU(data)           vld1q_f64(data)
-// # define PARALLILOS_F64_LOADA(data)           vld1q_f64(data)
-// # define PARALLILOS_F64_STOREU(addr, data)    vst1q_f64(addr, data)
-// # define PARALLILOS_F64_STOREA(addr, data)    vst1q_f64(addr, data)
-// # define PARALLILOS_F64_SETVAL(Talue)         vdupq_n_f64(Talue)
-// # define PARALLILOS_F64_SETZERO()             vdupq_n_f64(0.0)
-// # define PARALLILOS_F64_MUL(a, b)             vmulq_f64(a, b)
-// # define PARALLILOS_F64_ADD(a, b)             vaddq_f64(a, b)
-// # define PARALLILOS_F64_SUB(a, b)             vsubq_f64(a, b)
-// # define PARALLILOS_F64_DIV(a, b)             vdivq_f64(a, b)
-// # define PARALLILOS_F64_SQRT(a)               vsqrtq_f64(a)
-// # define PARALLILOS_F64_ADDMUL(a, b, c)       vmlaq_f64(a, b, c)
-// # define PARALLILOS_F64_SUBMUL(a, b, c)       vmlsq_f64(a, b, c)
-// # define PARALLILOS_F32_EQ(a, b)              vceqq_f64(a, b)
-// # define PARALLILOS_F32_NEQ(a, b)             vmvnq_u64(Tceqq_f64(a, b))
-// # define PARALLILOS_F32_GT(a, b)              vcgtq_f64(a, b)
-// # define PARALLILOS_F32_GTE(a, b)             vcgeq_f64(a, b)
-// # define PARALLILOS_F32_LT(a, b)              vcltq_f64(a, b)
-// # define PARALLILOS_F32_LTE(a, b)             vcleq_f64(a, b)
+//   _impl_ppz_MAKE_SIMD_SPECIALIZATION(double, float64x4_t, float64x4_t, 0, "NEON");
+// # define _impl_ppz_F64_LOADU(data)           vld1q_f64(data)
+// # define _impl_ppz_F64_LOADA(data)           vld1q_f64(data)
+// # define _impl_ppz_F64_STOREU(addr, data)    vst1q_f64(addr, data)
+// # define _impl_ppz_F64_STOREA(addr, data)    vst1q_f64(addr, data)
+// # define _impl_ppz_F64_SETVAL(value)         vdupq_n_f64(value)
+// # define _impl_ppz_F64_SETZERO()             vdupq_n_f64(0.0)
+// # define _impl_ppz_F64_MUL(a, b)             vmulq_f64(a, b)
+// # define _impl_ppz_F64_ADD(a, b)             vaddq_f64(a, b)
+// # define _impl_ppz_F64_SUB(a, b)             vsubq_f64(a, b)
+// # define _impl_ppz_F64_DIV(a, b)             vdivq_f64(a, b)
+// # define _impl_ppz_F64_SQRT(a)               vsqrtq_f64(a)
+// # define _impl_ppz_F64_ADDMUL(a, b, c)       vmlaq_f64(a, b, c)
+// # define _impl_ppz_F64_SUBMUL(a, b, c)       vmlsq_f64(a, b, c)
+// # define _impl_ppz_F32_EQ(a, b)              vceqq_f64(a, b)
+// # define _impl_ppz_F32_NEQ(a, b)             vmvnq_u64(vceqq_f64(a, b))
+// # define _impl_ppz_F32_GT(a, b)              vcgtq_f64(a, b)
+// # define _impl_ppz_F32_GTE(a, b)             vcgeq_f64(a, b)
+// # define _impl_ppz_F32_LT(a, b)              vcltq_f64(a, b)
+// # define _impl_ppz_F32_LTE(a, b)             vcleq_f64(a, b)
 
-// # define PARALLILOS_F32_ABS(a)                vabsq_f64(a)
+// # define _impl_ppz_F32_ABS(a)                vabsq_f64(a)
 #endif
 
-#ifdef PARALLILOS_F64
+#ifdef _impl_ppz_F64
   // load a vector with zeros
   template<>
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_setzero<double>() noexcept
   {
-    return PARALLILOS_F64_SETZERO();
-#   undef  PARALLILOS_F64_SETZERO
+    return _impl_ppz_F64_SETZERO();
+#   undef  _impl_ppz_F64_SETZERO
   }
 
   // load a vector from unaligned data
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_loadu(const double data[]) noexcept
   {
-    return PARALLILOS_F64_LOADU(data);
-#   undef  PARALLILOS_F64_LOADU
+    return _impl_ppz_F64_LOADU(data);
+#   undef  _impl_ppz_F64_LOADU
   }
 
   // load a vector from aligned data
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_loada(const double data[]) noexcept
   {
-    return PARALLILOS_F64_LOADA(data);
-#   undef  PARALLILOS_F64_LOADA
+    return _impl_ppz_F64_LOADA(data);
+#   undef  _impl_ppz_F64_LOADA
   }
 
   // store a vector into unaligned memory
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   void simd_storeu(double addr[], const SIMD<double>::Type& data)
   {
-    PARALLILOS_F64_STOREU(addr, data);
-#   undef PARALLILOS_F64_STOREU
+    _impl_ppz_F64_STOREU(addr, data);
+#   undef _impl_ppz_F64_STOREU
   }
 
   // store a vector into aligned memory
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   void simd_storea(double addr[], const SIMD<double>::Type& data)
   {
-    PARALLILOS_F64_STOREA(addr, data);
-#   undef PARALLILOS_F64_STOREA
+    _impl_ppz_F64_STOREA(addr, data);
+#   undef _impl_ppz_F64_STOREA
   }
 
   // load a vector with a specific value
   template<>
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_setval(const double value) noexcept
   {
-    return PARALLILOS_F64_SETVAL(value);
-#   undef  PARALLILOS_F64_SETVAL
+    return _impl_ppz_F64_SETVAL(value);
+#   undef  _impl_ppz_F64_SETVAL
   }
 
   // [a] + [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_add(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_ADD(a, b);
-#   undef  PARALLILOS_F64_ADD
+    return _impl_ppz_F64_ADD(a, b);
+#   undef  _impl_ppz_F64_ADD
   }
 
   // [a] * [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_mul(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_MUL(a, b);
-#   undef  PARALLILOS_F64_MUL
+    return _impl_ppz_F64_MUL(a, b);
+#   undef  _impl_ppz_F64_MUL
   }
 
   // [a] - [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_sub(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_SUB(a, b);
-#   undef  PARALLILOS_F64_SUB
+    return _impl_ppz_F64_SUB(a, b);
+#   undef  _impl_ppz_F64_SUB
   }
 
   // [a] / [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_div(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_DIV(a, b);
-#   undef  PARALLILOS_F64_DIV
+    return _impl_ppz_F64_DIV(a, b);
+#   undef  _impl_ppz_F64_DIV
   }
 
   // sqrt([a])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_sqrt(const SIMD<double>::Type& a) noexcept
   {
-    return PARALLILOS_F64_SQRT(a);
-#   undef  PARALLILOS_F64_SQRT
+    return _impl_ppz_F64_SQRT(a);
+#   undef  _impl_ppz_F64_SQRT
   }
 
   // [a] + ([b] * [c])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_addmul(const SIMD<double>::Type& a, const SIMD<double>::Type& b, const SIMD<double>::Type& c) noexcept
   {
-    return PARALLILOS_F64_ADDMUL(a, b, c);
-#   undef  PARALLILOS_F64_ADDMUL
+    return _impl_ppz_F64_ADDMUL(a, b, c);
+#   undef  _impl_ppz_F64_ADDMUL
   }
 
   // [a] - ([b] * [c])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_submul(const SIMD<double>::Type& a, const SIMD<double>::Type& b, const SIMD<double>::Type& c) noexcept
   {
-    return PARALLILOS_F64_SUBMUL(a, b, c);
-#   undef  PARALLILOS_F64_SUBMUL
+    return _impl_ppz_F64_SUBMUL(a, b, c);
+#   undef  _impl_ppz_F64_SUBMUL
   }
 
   // [a] == [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Mask simd_eq(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_EQ(a, b);
-#   undef  PARALLILOS_F64_EQ
+    return _impl_ppz_F64_EQ(a, b);
+#   undef  _impl_ppz_F64_EQ
   }
 
   // [a] != [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Mask simd_neq(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_NEQ(a, b);
-#   undef  PARALLILOS_F64_NEQ
+    return _impl_ppz_F64_NEQ(a, b);
+#   undef  _impl_ppz_F64_NEQ
   }
 
   // [a] > [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Mask simd_gt(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_GT(a, b);
-#   undef  PARALLILOS_F64_GT
+    return _impl_ppz_F64_GT(a, b);
+#   undef  _impl_ppz_F64_GT
   }
 
   // [a] >= [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Mask simd_gte(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_GTE(a, b);
-#   undef  PARALLILOS_F64_GTE
+    return _impl_ppz_F64_GTE(a, b);
+#   undef  _impl_ppz_F64_GTE
   }
 
   // [a] < [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Mask simd_lt(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_LT(a, b);
-#   undef  PARALLILOS_F64_LT
+    return _impl_ppz_F64_LT(a, b);
+#   undef  _impl_ppz_F64_LT
   }
 
   // [a] <= [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Mask simd_lte(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
-    return PARALLILOS_F64_LTE(a, b);
-#   undef  PARALLILOS_F64_LTE
+    return _impl_ppz_F64_LTE(a, b);
+#   undef  _impl_ppz_F64_LTE
   }
 
   // abs([a])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<double>::Type simd_abs(const SIMD<double>::Type& a) noexcept
   {
-    return PARALLILOS_F64_ABS(a);
-#   undef  PARALLILOS_F64_ABS
+    return _impl_ppz_F64_ABS(a);
+#   undef  _impl_ppz_F64_ABS
   }
 
-  inline
+  inline _impl_ppz_CONSTEXPR_CPP14
   std::ostream& operator<<(std::ostream& ostream, const SIMD<double>::Type& vector) noexcept
   {
     for (unsigned k = 0; k < SIMD<double>::size; ++k)
     {
-      if (k != 0) PARALLILOS_HOT
+      if (k != 0) _impl_ppz_HOT
       {
         ostream << ' ';
       }
@@ -1298,454 +1312,454 @@ namespace Parallilos
   }
 #endif
 
-#if defined(PARALLILOS_AVX512F)
-# define PARALLILOS_I32
+#if defined(_impl_ppz_AVX512F)
+# define _impl_ppz_I32
   static_assert(sizeof(int32_t) == 4, "int32_t must be 32 bit");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(int32_t, __m512i, __mmask16, 64, "AVX512F");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(uint32_t, __m512i, __mmask16, 64, "AVX512F");
-# define PARALLILOS_I32_LOADU(data)           _mm512_loadu_si512(data)
-# define PARALLILOS_I32_LOADA(data)           _mm512_load_si512(data)
-# define PARALLILOS_I32_STOREU(addr, data)    _mm512_storeu_si512((Toid*)addr, data)
-# define PARALLILOS_I32_STOREA(addr, data)    _mm512_store_si512((Toid*)addr, data)
-# define PARALLILOS_I32_SETVAL(Talue)         _mm512_set1_epi32(Talue)
-# define PARALLILOS_I32_SETZERO()             _mm512_setzero_si512()
-# define PARALLILOS_I32_MUL(a, b)             _mm512_mullo_epi32 (a, b)
-# define PARALLILOS_I32_ADD(a, b)             _mm512_add_epi32(a, b)
-# define PARALLILOS_I32_SUB(a, b)             _mm512_sub_epi32(a, b)
-# define PARALLILOS_I32_DIV(a, b)             _mm512_cvtps_epi32(_mm512_div_ps(_mm512_cvtepi32_ps(a), _mm512_cvtepi32_ps(b)))
-# define PARALLILOS_I32_SQRT(a)               _mm512_cvtps_epi32(_mm512_sqrt_ps(_mm512_cvtepi32_ps(a)))
-# define PARALLILOS_I32_ADDMUL(a, b, c)       _mm512_add_epi32(a, _mm512_mul_epi32(b, c))
-# define PARALLILOS_I32_SUBMUL(a, b, c)       _mm512_sub_epi32(a, _mm512_mul_epi32(b, c))
-# if defined(PARALLILOS_SVML)
-#   undef  PARALLILOS_I32_DIV
-#   define PARALLILOS_I32_DIV(a, b)           _mm512_div_epi32(a, b)
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(int32_t, __m512i, __mmask16, 64, "AVX512F");
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(uint32_t, __m512i, __mmask16, 64, "AVX512F");
+# define _impl_ppz_I32_LOADU(data)           _mm512_loadu_si512(data)
+# define _impl_ppz_I32_LOADA(data)           _mm512_load_si512(data)
+# define _impl_ppz_I32_STOREU(addr, data)    _mm512_storeu_si512((Toid*)addr, data)
+# define _impl_ppz_I32_STOREA(addr, data)    _mm512_store_si512((Toid*)addr, data)
+# define _impl_ppz_I32_SETVAL(value)         _mm512_set1_epi32(value)
+# define _impl_ppz_I32_SETZERO()             _mm512_setzero_si512()
+# define _impl_ppz_I32_MUL(a, b)             _mm512_mullo_epi32 (a, b)
+# define _impl_ppz_I32_ADD(a, b)             _mm512_add_epi32(a, b)
+# define _impl_ppz_I32_SUB(a, b)             _mm512_sub_epi32(a, b)
+# define _impl_ppz_I32_DIV(a, b)             _mm512_cvtps_epi32(_mm512_div_ps(_mm512_cvtepi32_ps(a), _mm512_cvtepi32_ps(b)))
+# define _impl_ppz_I32_SQRT(a)               _mm512_cvtps_epi32(_mm512_sqrt_ps(_mm512_cvtepi32_ps(a)))
+# define _impl_ppz_I32_ADDMUL(a, b, c)       _mm512_add_epi32(a, _mm512_mul_epi32(b, c))
+# define _impl_ppz_I32_SUBMUL(a, b, c)       _mm512_sub_epi32(a, _mm512_mul_epi32(b, c))
+# if defined(_impl_ppz_SVML)
+#   undef  _impl_ppz_I32_DIV
+#   define _impl_ppz_I32_DIV(a, b)           _mm512_div_epi32(a, b)
 # endif
 
-# define PARALLILOS_I32_EQ(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_EQ)
-# define PARALLILOS_I32_NEQ(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NE)
-# define PARALLILOS_I32_GT(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NLE)
-# define PARALLILOS_I32_GTE(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NLT)
-# define PARALLILOS_I32_LT(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_LT)
-# define PARALLILOS_I32_LTE(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_LE)
+# define _impl_ppz_I32_EQ(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_EQ)
+# define _impl_ppz_I32_NEQ(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NE)
+# define _impl_ppz_I32_GT(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NLE)
+# define _impl_ppz_I32_GTE(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_NLT)
+# define _impl_ppz_I32_LT(a, b)              _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_LT)
+# define _impl_ppz_I32_LTE(a, b)             _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_LE)
 
-# define PARALLILOS_I32_BW_NOT(a)             _mm512_xor_si512(a, _mm512_set1_epi32(-1))
-# define PARALLILOS_I32_BW_AND(a, b)          _mm512_and_si512(a, b)
-# define PARALLILOS_I32_BW_NAND(a, b)         _mm512_xor_si512(_mm512_xor_si512(a, b), _mm512_set1_epi32(-1))
-# define PARALLILOS_I32_BW_OR(a, b)           _mm512_or_si512(a, b)
-# define PARALLILOS_I32_BW_NOR(a, b)          _mm512_xor_si512(_mm512_xor_si512(a, b), _mm512_set1_epi32(-1))
-# define PARALLILOS_I32_BW_XOR(a, b)          _mm512_xor_si512(a, b)
-# define PARALLILOS_I32_BW_XNOR(a, b)         _mm512_xor_si512(_mm512_xor_si512(a, b), _mm512_set1_epi32(-1))
+# define _impl_ppz_I32_BW_NOT(a)             _mm512_xor_si512(a, _mm512_set1_epi32(-1))
+# define _impl_ppz_I32_BW_AND(a, b)          _mm512_and_si512(a, b)
+# define _impl_ppz_I32_BW_NAND(a, b)         _mm512_xor_si512(_mm512_xor_si512(a, b), _mm512_set1_epi32(-1))
+# define _impl_ppz_I32_BW_OR(a, b)           _mm512_or_si512(a, b)
+# define _impl_ppz_I32_BW_NOR(a, b)          _mm512_xor_si512(_mm512_xor_si512(a, b), _mm512_set1_epi32(-1))
+# define _impl_ppz_I32_BW_XOR(a, b)          _mm512_xor_si512(a, b)
+# define _impl_ppz_I32_BW_XNOR(a, b)         _mm512_xor_si512(_mm512_xor_si512(a, b), _mm512_set1_epi32(-1))
 
-# define PARALLILOS_I32_ABS(a)                _mm512_abs_epi32(a)
-#elif defined(PARALLILOS_AVX2)
-# define PARALLILOS_I32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(int32_t, __m256i, __m256i, 32, "AVX2, AVX");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(uint32_t, __m256i, __m256i, 32, "AVX2, AVX");
-# define PARALLILOS_I32_LOADU(data)           _mm256_loadu_si256((const __m256i*)data)
-# define PARALLILOS_I32_LOADA(data)           _mm256_load_si256((const __m256i*)data)
-# define PARALLILOS_I32_STOREU(addr, data)    _mm256_storeu_si256 ((__m256i*)addr, data)
-# define PARALLILOS_I32_STOREA(addr, data)    _mm256_store_si256((__m256i*)addr, data)
-# define PARALLILOS_I32_SETVAL(Talue)         _mm256_set1_epi32(Talue)
-# define PARALLILOS_I32_SETZERO()             _mm256_setzero_si256()
-# define PARALLILOS_I32_MUL(a, b)             _mm256_mullo_epi32(a, b)
-# define PARALLILOS_I32_ADD(a, b)             _mm256_add_epi32(a, b)
-# define PARALLILOS_I32_SUB(a, b)             _mm256_sub_epi32(a, b)
-# define PARALLILOS_I32_DIV(a, b)             _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
-# define PARALLILOS_I32_SQRT(a)               _mm256_cvtps_epi32(_mm256_sqrt_ps(_mm256_cvtepi32_ps(a)))
-# define PARALLILOS_I32_ADDMUL(a, b, c)       _mm256_add_epi32(a, _mm256_mul_epi32(b, c))
-# define PARALLILOS_I32_SUBMUL(a, b, c)       _mm256_sub_epi32(a, _mm256_mul_epi32(b, c))
-# if defined(PARALLILOS_SVML)
-#   undef  PARALLILOS_I32_DIV
-#   define PARALLILOS_I32_DIV(a, b)           _mm256_div_epi32(a, b)
+# define _impl_ppz_I32_ABS(a)                _mm512_abs_epi32(a)
+#elif defined(_impl_ppz_AVX2)
+# define _impl_ppz_I32
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(int32_t, __m256i, __m256i, 32, "AVX2, AVX");
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(uint32_t, __m256i, __m256i, 32, "AVX2, AVX");
+# define _impl_ppz_I32_LOADU(data)           _mm256_loadu_si256((const __m256i*)data)
+# define _impl_ppz_I32_LOADA(data)           _mm256_load_si256((const __m256i*)data)
+# define _impl_ppz_I32_STOREU(addr, data)    _mm256_storeu_si256 ((__m256i*)addr, data)
+# define _impl_ppz_I32_STOREA(addr, data)    _mm256_store_si256((__m256i*)addr, data)
+# define _impl_ppz_I32_SETVAL(value)         _mm256_set1_epi32(value)
+# define _impl_ppz_I32_SETZERO()             _mm256_setzero_si256()
+# define _impl_ppz_I32_MUL(a, b)             _mm256_mullo_epi32(a, b)
+# define _impl_ppz_I32_ADD(a, b)             _mm256_add_epi32(a, b)
+# define _impl_ppz_I32_SUB(a, b)             _mm256_sub_epi32(a, b)
+# define _impl_ppz_I32_DIV(a, b)             _mm256_cvtps_epi32(_mm256_div_ps(_mm256_cvtepi32_ps(a), _mm256_cvtepi32_ps(b)))
+# define _impl_ppz_I32_SQRT(a)               _mm256_cvtps_epi32(_mm256_sqrt_ps(_mm256_cvtepi32_ps(a)))
+# define _impl_ppz_I32_ADDMUL(a, b, c)       _mm256_add_epi32(a, _mm256_mul_epi32(b, c))
+# define _impl_ppz_I32_SUBMUL(a, b, c)       _mm256_sub_epi32(a, _mm256_mul_epi32(b, c))
+# if defined(_impl_ppz_SVML)
+#   undef  _impl_ppz_I32_DIV
+#   define _impl_ppz_I32_DIV(a, b)           _mm256_div_epi32(a, b)
 # endif
 
-# define PARALLILOS_I32_EQ(a, b)              _mm256_cmpeq_epi32(a, b)
-# define PARALLILOS_I32_NEQ(a, b)             _mm256_xor_si256(_mm256_cmpeq_epi32(a, b), _mm256_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_GT(a, b)              _mm256_cmpgt_epi32(a, b)
-# define PARALLILOS_I32_GTE(a, b)             _mm256_xor_si256(_mm256_cmpgt_epi32(b, a), _mm256_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_LT(a, b)              _mm256_cmpgt_epi32(b, a)
-# define PARALLILOS_I32_LTE(a, b)             _mm256_xor_si256(_mm256_cmpgt_epi32(a, b), _mm256_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_EQ(a, b)              _mm256_cmpeq_epi32(a, b)
+# define _impl_ppz_I32_NEQ(a, b)             _mm256_xor_si256(_mm256_cmpeq_epi32(a, b), _mm256_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_GT(a, b)              _mm256_cmpgt_epi32(a, b)
+# define _impl_ppz_I32_GTE(a, b)             _mm256_xor_si256(_mm256_cmpgt_epi32(b, a), _mm256_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_LT(a, b)              _mm256_cmpgt_epi32(b, a)
+# define _impl_ppz_I32_LTE(a, b)             _mm256_xor_si256(_mm256_cmpgt_epi32(a, b), _mm256_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_BW_NOT(a)             _mm256_xor_si256(a, _mm256_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_AND(a, b)          _mm256_and_si256(a, b)
-# define PARALLILOS_I32_BW_NAND(a, b)         _mm256_xor_si256(_mm256_xor_si256(a, b), _mm256_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_OR(a, b)           _mm256_or_si256(a, b)
-# define PARALLILOS_I32_BW_NOR(a, b)          _mm256_xor_si256(_mm256_xor_si256(a, b), _mm256_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_XOR(a, b)          _mm256_xor_si256(a, b)
-# define PARALLILOS_I32_BW_XNOR(a, b)         _mm256_xor_si256(_mm256_xor_si256(a, b), _mm256_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_NOT(a)             _mm256_xor_si256(a, _mm256_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_AND(a, b)          _mm256_and_si256(a, b)
+# define _impl_ppz_I32_BW_NAND(a, b)         _mm256_xor_si256(_mm256_xor_si256(a, b), _mm256_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_OR(a, b)           _mm256_or_si256(a, b)
+# define _impl_ppz_I32_BW_NOR(a, b)          _mm256_xor_si256(_mm256_xor_si256(a, b), _mm256_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_XOR(a, b)          _mm256_xor_si256(a, b)
+# define _impl_ppz_I32_BW_XNOR(a, b)         _mm256_xor_si256(_mm256_xor_si256(a, b), _mm256_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_ABS(a)                _mm256_abs_epi32(a)
-#elif defined(PARALLILOS_SSE4_1)
-# define PARALLILOS_I32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(int32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(uint32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
-# define PARALLILOS_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
-# define PARALLILOS_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
-# define PARALLILOS_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
-# define PARALLILOS_I32_STOREA(addr, data)    _mm_store_si128((__m128i*)addr, data)
-# define PARALLILOS_I32_SETVAL(Talue)         _mm_set1_epi32(Talue)
-# define PARALLILOS_I32_SETZERO()             _mm_setzero_si128()
-# define PARALLILOS_I32_MUL(a, b)             _mm_mullo_epi32(a, b)
-# define PARALLILOS_I32_ADD(a, b)             _mm_add_epi32(a, b)
-# define PARALLILOS_I32_SUB(a, b)             _mm_sub_epi32(a, b)
-# define PARALLILOS_I32_DIV(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-# define PARALLILOS_I32_SQRT(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
-# define PARALLILOS_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_mul_epi32(b, c))
-# define PARALLILOS_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_mul_epi32(b, c))
-# if defined(PARALLILOS_SVML)
-#   undef  PARALLILOS_I32_DIV
-#   define PARALLILOS_I32_DIV(a, b)           _mm_div_epi32(a, b)
+# define _impl_ppz_I32_ABS(a)                _mm256_abs_epi32(a)
+#elif defined(_impl_ppz_SSE4_1)
+# define _impl_ppz_I32
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(int32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(uint32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
+# define _impl_ppz_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
+# define _impl_ppz_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
+# define _impl_ppz_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
+# define _impl_ppz_I32_STOREA(addr, data)    _mm_store_si128((__m128i*)addr, data)
+# define _impl_ppz_I32_SETVAL(value)         _mm_set1_epi32(value)
+# define _impl_ppz_I32_SETZERO()             _mm_setzero_si128()
+# define _impl_ppz_I32_MUL(a, b)             _mm_mullo_epi32(a, b)
+# define _impl_ppz_I32_ADD(a, b)             _mm_add_epi32(a, b)
+# define _impl_ppz_I32_SUB(a, b)             _mm_sub_epi32(a, b)
+# define _impl_ppz_I32_DIV(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+# define _impl_ppz_I32_SQRT(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
+# define _impl_ppz_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_mul_epi32(b, c))
+# define _impl_ppz_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_mul_epi32(b, c))
+# if defined(_impl_ppz_SVML)
+#   undef  _impl_ppz_I32_DIV
+#   define _impl_ppz_I32_DIV(a, b)           _mm_div_epi32(a, b)
 # endif
 
-# define PARALLILOS_I32_EQ(a, b)              _mm_cmpeq_epi32(a, b)
-# define PARALLILOS_I32_NEQ(a, b)             _mm_xor_si128(_mm_cmpeq_epi32(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_GT(a, b)              _mm_cmpgt_epi32(a, b)
-# define PARALLILOS_I32_GTE(a, b)             _mm_xor_si128(_mm_cmplt_epi32(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_LT(a, b)              _mm_cmplt_epi32(a, b)
-# define PARALLILOS_I32_LTE(a, b)             _mm_xor_si128(_mm_cmpgt_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_EQ(a, b)              _mm_cmpeq_epi32(a, b)
+# define _impl_ppz_I32_NEQ(a, b)             _mm_xor_si128(_mm_cmpeq_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_GT(a, b)              _mm_cmpgt_epi32(a, b)
+# define _impl_ppz_I32_GTE(a, b)             _mm_xor_si128(_mm_cmplt_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_LT(a, b)              _mm_cmplt_epi32(a, b)
+# define _impl_ppz_I32_LTE(a, b)             _mm_xor_si128(_mm_cmpgt_epi32(a, b), _mm_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_BW_NOT(a)             _mm_xor_si128(a, _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_AND(a, b)          _mm_and_si128(a, b)
-# define PARALLILOS_I32_BW_NAND(a, b)         _mm_xor_si128(_mm_and_si128(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_OR(a, b)           _mm_or_si128(a, b)
-# define PARALLILOS_I32_BW_NOR(a, b)          _mm_xor_si128(_mm_or_si128(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_XOR(a, b)          _mm_xor_si128(a, b)
-# define PARALLILOS_I32_BW_XNOR(a, b)         _mm_xor_si128(_mm_xor_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_NOT(a)             _mm_xor_si128(a, _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_AND(a, b)          _mm_and_si128(a, b)
+# define _impl_ppz_I32_BW_NAND(a, b)         _mm_xor_si128(_mm_and_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_OR(a, b)           _mm_or_si128(a, b)
+# define _impl_ppz_I32_BW_NOR(a, b)          _mm_xor_si128(_mm_or_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_XOR(a, b)          _mm_xor_si128(a, b)
+# define _impl_ppz_I32_BW_XNOR(a, b)         _mm_xor_si128(_mm_xor_si128(a, b), _mm_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_ABS(a)                _mm_abs_epi32(a)
-#elif defined(PARALLILOS_SSSE3)
-# define PARALLILOS_I32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(int32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(uint32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
-# define PARALLILOS_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
-# define PARALLILOS_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
-# define PARALLILOS_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
-# define PARALLILOS_I32_STOREA(addr, data)    _mm_store_si128((__m128i*)addr, data)
-# define PARALLILOS_I32_SETVAL(Talue)         _mm_set1_epi32(Talue)
-# define PARALLILOS_I32_SETZERO()             _mm_setzero_si128()
-# define PARALLILOS_I32_MUL(a, b)             _mm_mullo_epi32(a, b)
-# define PARALLILOS_I32_ADD(a, b)             _mm_add_epi32(a, b)
-# define PARALLILOS_I32_SUB(a, b)             _mm_sub_epi32(a, b)
-# define PARALLILOS_I32_DIV(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-# define PARALLILOS_I32_SQRT(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
-# define PARALLILOS_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_mul_epi32(b, c))
-# define PARALLILOS_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_mul_epi32(b, c))
-# if defined(PARALLILOS_SVML)
-#   undef  PARALLILOS_I32_DIV
-#   define PARALLILOS_I32_DIV(a, b)           _mm_div_epi32(a, b)
+# define _impl_ppz_I32_ABS(a)                _mm_abs_epi32(a)
+#elif defined(_impl_ppz_SSSE3)
+# define _impl_ppz_I32
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(int32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(uint32_t, __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
+# define _impl_ppz_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
+# define _impl_ppz_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
+# define _impl_ppz_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
+# define _impl_ppz_I32_STOREA(addr, data)    _mm_store_si128((__m128i*)addr, data)
+# define _impl_ppz_I32_SETVAL(value)         _mm_set1_epi32(value)
+# define _impl_ppz_I32_SETZERO()             _mm_setzero_si128()
+# define _impl_ppz_I32_MUL(a, b)             _mm_mullo_epi32(a, b)
+# define _impl_ppz_I32_ADD(a, b)             _mm_add_epi32(a, b)
+# define _impl_ppz_I32_SUB(a, b)             _mm_sub_epi32(a, b)
+# define _impl_ppz_I32_DIV(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+# define _impl_ppz_I32_SQRT(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
+# define _impl_ppz_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_mul_epi32(b, c))
+# define _impl_ppz_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_mul_epi32(b, c))
+# if defined(_impl_ppz_SVML)
+#   undef  _impl_ppz_I32_DIV
+#   define _impl_ppz_I32_DIV(a, b)           _mm_div_epi32(a, b)
 # endif
 
-# define PARALLILOS_I32_EQ(a, b)              _mm_cmpeq_epi32(a, b)
-# define PARALLILOS_I32_NEQ(a, b)             _mm_xor_si128(_mm_cmpeq_epi32(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_GT(a, b)              _mm_cmpgt_epi32(a, b)
-# define PARALLILOS_I32_GTE(a, b)             _mm_xor_si128(_mm_cmplt_epi32(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_LT(a, b)              _mm_cmplt_epi32(a, b)
-# define PARALLILOS_I32_LTE(a, b)             _mm_xor_si128(_mm_cmpgt_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_EQ(a, b)              _mm_cmpeq_epi32(a, b)
+# define _impl_ppz_I32_NEQ(a, b)             _mm_xor_si128(_mm_cmpeq_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_GT(a, b)              _mm_cmpgt_epi32(a, b)
+# define _impl_ppz_I32_GTE(a, b)             _mm_xor_si128(_mm_cmplt_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_LT(a, b)              _mm_cmplt_epi32(a, b)
+# define _impl_ppz_I32_LTE(a, b)             _mm_xor_si128(_mm_cmpgt_epi32(a, b), _mm_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_BW_NOT(a)             _mm_xor_si128(a, _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_AND(a, b)          _mm_and_si128(a, b)
-# define PARALLILOS_I32_BW_NAND(a, b)         _mm_xor_si128(_mm_and_si128(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_OR(a, b)           _mm_or_si128(a, b)
-# define PARALLILOS_I32_BW_NOR(a, b)          _mm_xor_si128(_mm_or_si128(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_XOR(a, b)          _mm_xor_si128(a, b)
-# define PARALLILOS_I32_BW_XNOR(a, b)         _mm_xor_si128(_mm_xor_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_NOT(a)             _mm_xor_si128(a, _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_AND(a, b)          _mm_and_si128(a, b)
+# define _impl_ppz_I32_BW_NAND(a, b)         _mm_xor_si128(_mm_and_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_OR(a, b)           _mm_or_si128(a, b)
+# define _impl_ppz_I32_BW_NOR(a, b)          _mm_xor_si128(_mm_or_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_XOR(a, b)          _mm_xor_si128(a, b)
+# define _impl_ppz_I32_BW_XNOR(a, b)         _mm_xor_si128(_mm_xor_si128(a, b), _mm_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_ABS(a)                _mm_abs_epi32(a)
-#elif defined(PARALLILOS_SSE2)
-# define PARALLILOS_I32
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(int32_t, __m128i, __m128i, 16, "SSE2, SSE");
-  PARALLILOS_MAKE_SIMD_SPECIALIZATION(uint32_t, __m128i, __m128i, 16, "SSE2, SSE");
-# define PARALLILOS_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
-# define PARALLILOS_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
-# define PARALLILOS_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
-# define PARALLILOS_I32_STOREA(addr, data)    _mm_store_si128((__m128i*)addr, data)
-# define PARALLILOS_I32_SETVAL(Talue)         _mm_set1_epi32(Talue)
-# define PARALLILOS_I32_SETZERO()             _mm_setzero_si128()
-# define PARALLILOS_I32_MUL(a, b)             _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-# define PARALLILOS_I32_ADD(a, b)             _mm_add_epi32(a, b)
-# define PARALLILOS_I32_SUB(a, b)             _mm_sub_epi32(a, b)
-# define PARALLILOS_I32_DIV(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-# define PARALLILOS_I32_SQRT(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
-# define PARALLILOS_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
-# define PARALLILOS_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+# define _impl_ppz_I32_ABS(a)                _mm_abs_epi32(a)
+#elif defined(_impl_ppz_SSE2)
+# define _impl_ppz_I32
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(int32_t, __m128i, __m128i, 16, "SSE2, SSE");
+  _impl_ppz_MAKE_SIMD_SPECIALIZATION(uint32_t, __m128i, __m128i, 16, "SSE2, SSE");
+# define _impl_ppz_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
+# define _impl_ppz_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
+# define _impl_ppz_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
+# define _impl_ppz_I32_STOREA(addr, data)    _mm_store_si128((__m128i*)addr, data)
+# define _impl_ppz_I32_SETVAL(value)         _mm_set1_epi32(value)
+# define _impl_ppz_I32_SETZERO()             _mm_setzero_si128()
+# define _impl_ppz_I32_MUL(a, b)             _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+# define _impl_ppz_I32_ADD(a, b)             _mm_add_epi32(a, b)
+# define _impl_ppz_I32_SUB(a, b)             _mm_sub_epi32(a, b)
+# define _impl_ppz_I32_DIV(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+# define _impl_ppz_I32_SQRT(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
+# define _impl_ppz_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+# define _impl_ppz_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
 
-# define PARALLILOS_I32_EQ(a, b)              _mm_cmpeq_epi32(a, b)
-# define PARALLILOS_I32_NEQ(a, b)             _mm_xor_si128(_mm_cmpeq_epi32(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_GT(a, b)              _mm_cmpgt_epi32(a, b)
-# define PARALLILOS_I32_GTE(a, b)             _mm_xor_si128(_mm_cmplt_epi32(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_LT(a, b)              _mm_cmplt_epi32(a, b)
-# define PARALLILOS_I32_LTE(a, b)             _mm_xor_si128(_mm_cmpgt_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_EQ(a, b)              _mm_cmpeq_epi32(a, b)
+# define _impl_ppz_I32_NEQ(a, b)             _mm_xor_si128(_mm_cmpeq_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_GT(a, b)              _mm_cmpgt_epi32(a, b)
+# define _impl_ppz_I32_GTE(a, b)             _mm_xor_si128(_mm_cmplt_epi32(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_LT(a, b)              _mm_cmplt_epi32(a, b)
+# define _impl_ppz_I32_LTE(a, b)             _mm_xor_si128(_mm_cmpgt_epi32(a, b), _mm_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_BW_NOT(a)             _mm_xor_si128(a, _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_AND(a, b)          _mm_and_si128(a, b)
-# define PARALLILOS_I32_BW_NAND(a, b)         _mm_xor_si128(_mm_and_si128(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_OR(a, b)           _mm_or_si128(a, b)
-# define PARALLILOS_I32_BW_NOR(a, b)          _mm_xor_si128(_mm_or_si128(a, b), _mm_cmpeq_epi32(a, a))
-# define PARALLILOS_I32_BW_XOR(a, b)          _mm_xor_si128(a, b)
-# define PARALLILOS_I32_BW_XNOR(a, b)         _mm_xor_si128(_mm_xor_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_NOT(a)             _mm_xor_si128(a, _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_AND(a, b)          _mm_and_si128(a, b)
+# define _impl_ppz_I32_BW_NAND(a, b)         _mm_xor_si128(_mm_and_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_OR(a, b)           _mm_or_si128(a, b)
+# define _impl_ppz_I32_BW_NOR(a, b)          _mm_xor_si128(_mm_or_si128(a, b), _mm_cmpeq_epi32(a, a))
+# define _impl_ppz_I32_BW_XOR(a, b)          _mm_xor_si128(a, b)
+# define _impl_ppz_I32_BW_XNOR(a, b)         _mm_xor_si128(_mm_xor_si128(a, b), _mm_cmpeq_epi32(a, a))
 
-# define PARALLILOS_I32_ABS(a)                                  \
+# define _impl_ppz_I32_ABS(a)                                   \
   [&]() -> __m128i {                                            \
     const __m128i signmask = _mm_srai_epi32(a, 31);             \
     return _mm_sub_epi32(_mm_xor_si128(a, signmask), signmask); \
   }()
 #endif
 
-#ifdef PARALLILOS_I32
+#ifdef _impl_ppz_I32
   // load a vector with zeros
   template<>
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_setzero<int32_t>() noexcept
   {
-    return PARALLILOS_I32_SETZERO();
+    return _impl_ppz_I32_SETZERO();
   }
   template<>
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_setzero<uint32_t>() noexcept
   {
-    return PARALLILOS_I32_SETZERO();
-#   undef  PARALLILOS_I32_SETZERO
+    return _impl_ppz_I32_SETZERO();
+#   undef  _impl_ppz_I32_SETZERO
   }
 
   // load a vector from unaligned data
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_loadu(const int32_t data[]) noexcept
   {
-    return PARALLILOS_I32_LOADU(data);
+    return _impl_ppz_I32_LOADU(data);
   }
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_loadu(const uint32_t data[]) noexcept
   {
-    return PARALLILOS_I32_LOADU(data);
-#   undef  PARALLILOS_I32_LOADU
+    return _impl_ppz_I32_LOADU(data);
+#   undef  _impl_ppz_I32_LOADU
   }
 
   // load a vector from aligned data
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_loada(const int32_t data[]) noexcept
   {
-    return PARALLILOS_I32_LOADA(data);
+    return _impl_ppz_I32_LOADA(data);
   }
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_loada(const uint32_t data[]) noexcept
   {
-    return PARALLILOS_I32_LOADA(data);
-#   undef  PARALLILOS_I32_LOADA
+    return _impl_ppz_I32_LOADA(data);
+#   undef  _impl_ppz_I32_LOADA
   }
 
   // store a vector into unaligned memory
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   void simd_storeu(int32_t addr[], const SIMD<int32_t>::Type& data)
   {
-    PARALLILOS_I32_STOREU(addr, data);
-#   undef PARALLILOS_I32_STOREU
+    _impl_ppz_I32_STOREU(addr, data);
+#   undef _impl_ppz_I32_STOREU
   }
 
   // store a vector into aligned memory
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   void simd_storea(int32_t addr[], const SIMD<int32_t>::Type& data)
   {
-    PARALLILOS_I32_STOREA(addr, data);
+    _impl_ppz_I32_STOREA(addr, data);
   }
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   void simd_storea(uint32_t addr[], const SIMD<int32_t>::Type& data)
   {
-    PARALLILOS_I32_STOREA(addr, data);
-#   undef PARALLILOS_I32_STOREA
+    _impl_ppz_I32_STOREA(addr, data);
+#   undef _impl_ppz_I32_STOREA
   }
 
   // load a vector with a specific value
   template<>
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_setval(const int32_t value) noexcept
   {
-    return PARALLILOS_I32_SETVAL(value);
+    return _impl_ppz_I32_SETVAL(value);
   }
   template<>
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_setval(const uint32_t value) noexcept
   {
-    return PARALLILOS_I32_SETVAL(value);
-#   undef  PARALLILOS_I32_SETVAL
+    return _impl_ppz_I32_SETVAL(value);
+#   undef  _impl_ppz_I32_SETVAL
   }
 
   // [a] + [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_add(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
-    return PARALLILOS_I32_ADD(a, b);
-#   undef  PARALLILOS_I32_ADD
+    return _impl_ppz_I32_ADD(a, b);
+#   undef  _impl_ppz_I32_ADD
   }
 
   // [a] * [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_mul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
-    return PARALLILOS_I32_MUL(a, b);
-#   undef  PARALLILOS_I32_MUL
+    return _impl_ppz_I32_MUL(a, b);
+#   undef  _impl_ppz_I32_MUL
   }
 
   // [a] - [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_sub(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
-    return PARALLILOS_I32_SUB(a, b);
-#   undef  PARALLILOS_I32_SUB
+    return _impl_ppz_I32_SUB(a, b);
+#   undef  _impl_ppz_I32_SUB
   }
 
   // [a] / [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_div(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
-    return PARALLILOS_I32_DIV(a, b);
-#   undef  PARALLILOS_I32_DIV
+    return _impl_ppz_I32_DIV(a, b);
+#   undef  _impl_ppz_I32_DIV
   }
 
   // sqrt([a])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_sqrt(const SIMD<int32_t>::Type& a) noexcept
   {
-    return PARALLILOS_I32_SQRT(a);
-#   undef  PARALLILOS_I32_SQRT
+    return _impl_ppz_I32_SQRT(a);
+#   undef  _impl_ppz_I32_SQRT
   }
 
   // [a] + ([b] * [c])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_addmul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b, const SIMD<int32_t>::Type& c) noexcept
   {
-    return PARALLILOS_I32_ADDMUL(a, b, c);
-#   undef  PARALLILOS_I32_ADDMUL
+    return _impl_ppz_I32_ADDMUL(a, b, c);
+#   undef  _impl_ppz_I32_ADDMUL
   }
 
   // [a] - ([b] * [c])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   SIMD<int32_t>::Type simd_submul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b, const SIMD<int32_t>::Type& c) noexcept
   {
-    return PARALLILOS_I32_SUBMUL(a, b, c);
-#   undef  PARALLILOS_I32_SUBMUL
+    return _impl_ppz_I32_SUBMUL(a, b, c);
+#   undef  _impl_ppz_I32_SUBMUL
   }
 
   // [a] == [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   auto simd_eq(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept -> SIMD<int32_t>::Mask
   {
-    return PARALLILOS_I32_EQ(a, b);
-#   undef  PARALLILOS_I32_EQ
+    return _impl_ppz_I32_EQ(a, b);
+#   undef  _impl_ppz_I32_EQ
   }
 
   // [a] != [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   auto simd_neq(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept -> SIMD<int32_t>::Mask
   {
-    return PARALLILOS_I32_NEQ(a, b);
-#   undef  PARALLILOS_I32_NEQ
+    return _impl_ppz_I32_NEQ(a, b);
+#   undef  _impl_ppz_I32_NEQ
   }
 
   // [a] > [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   auto simd_gt(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept -> SIMD<int32_t>::Mask
   {
-    return PARALLILOS_I32_GT(a, b);
-#   undef  PARALLILOS_I32_GT
+    return _impl_ppz_I32_GT(a, b);
+#   undef  _impl_ppz_I32_GT
   }
 
   // [a] >= [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   auto simd_gte(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept -> SIMD<int32_t>::Mask
   {
-    return PARALLILOS_I32_GTE(a, b);
-#   undef  PARALLILOS_I32_GTE
+    return _impl_ppz_I32_GTE(a, b);
+#   undef  _impl_ppz_I32_GTE
   }
 
   // [a] < [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   auto simd_lt(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept -> SIMD<int32_t>::Mask
   {
-    return PARALLILOS_I32_LT(a, b);
-#   undef  PARALLILOS_I32_LT
+    return _impl_ppz_I32_LT(a, b);
+#   undef  _impl_ppz_I32_LT
   }
 
   // [a] <= [b]
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE 
   auto simd_lte(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept -> SIMD<int32_t>::Mask
   {
-    return PARALLILOS_I32_LTE(a, b);
-#   undef  PARALLILOS_I32_LTE
+    return _impl_ppz_I32_LTE(a, b);
+#   undef  _impl_ppz_I32_LTE
   }
 
   inline namespace Bitwise
   {
     // ![a]
-    PARALLILOS_INLINE
+    _impl_ppz_INLINE 
     SIMD<int32_t>::Type simd_not(const SIMD<int32_t>::Type& a) noexcept
     {
-      return PARALLILOS_I32_BW_NOT(a);
-#     undef  PARALLILOS_I32_BW_NOT
+      return _impl_ppz_I32_BW_NOT(a);
+#     undef  _impl_ppz_I32_BW_NOT
     }
 
     // [a] & [b]
-    PARALLILOS_INLINE
+    _impl_ppz_INLINE 
     SIMD<int32_t>::Type simd_and(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
     {
-      return PARALLILOS_I32_BW_AND(a, b);
-#     undef  PARALLILOS_I32_BW_AND
+      return _impl_ppz_I32_BW_AND(a, b);
+#     undef  _impl_ppz_I32_BW_AND
     }
 
     // !([a] & [b])
-    PARALLILOS_INLINE
+    _impl_ppz_INLINE 
     SIMD<int32_t>::Type simd_nand(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
     {
-      return PARALLILOS_I32_BW_NAND(a, b);
-#     undef  PARALLILOS_I32_BW_NAND
+      return _impl_ppz_I32_BW_NAND(a, b);
+#     undef  _impl_ppz_I32_BW_NAND
     }
 
     // [a] | [b]
-    PARALLILOS_INLINE
+    _impl_ppz_INLINE 
     SIMD<int32_t>::Type simd_or(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
     {
-      return PARALLILOS_I32_BW_OR(a, b);
-#     undef  PARALLILOS_I32_BW_OR
+      return _impl_ppz_I32_BW_OR(a, b);
+#     undef  _impl_ppz_I32_BW_OR
     }
 
     // !([a] | [b])
-    PARALLILOS_INLINE
+    _impl_ppz_INLINE 
     SIMD<int32_t>::Type simd_nor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
     {
-      return PARALLILOS_I32_BW_NOR(a, b);
-#     undef  PARALLILOS_I32_BW_NOR
+      return _impl_ppz_I32_BW_NOR(a, b);
+#     undef  _impl_ppz_I32_BW_NOR
     }
 
     // [a] ^ [b]
-    PARALLILOS_INLINE
+    _impl_ppz_INLINE 
     SIMD<int32_t>::Type simd_xor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
     {
-      return PARALLILOS_I32_BW_XOR(a, b);
-#     undef  PARALLILOS_I32_BW_XOR
+      return _impl_ppz_I32_BW_XOR(a, b);
+#     undef  _impl_ppz_I32_BW_XOR
     }
 
     // !([a] ^ [b])
-    PARALLILOS_INLINE
+    _impl_ppz_INLINE 
     SIMD<int32_t>::Type simd_xnor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
     {
-      return PARALLILOS_I32_BW_XNOR(a, b);
-#     undef  PARALLILOS_I32_BW_XNOR
+      return _impl_ppz_I32_BW_XNOR(a, b);
+#     undef  _impl_ppz_I32_BW_XNOR
     }
   }
 
   // abs([a])
-  PARALLILOS_INLINE
+  _impl_ppz_INLINE
   SIMD<int32_t>::Type simd_abs(const SIMD<int32_t>::Type& a) noexcept
   {
-    return PARALLILOS_I32_ABS(a);
-#   undef  PARALLILOS_I32_ABS
+    return _impl_ppz_I32_ABS(a);
+#   undef  _impl_ppz_I32_ABS
   }
 
-  inline
+  inline _impl_ppz_CONSTEXPR_CPP14
   std::ostream& operator<<(std::ostream& ostream, const SIMD<int32_t>::Type& vector) noexcept
   {
     for (unsigned k = 0; k < SIMD<int32_t>::size; ++k)
     {
-      if (k != 0) PARALLILOS_HOT
+      if (k != 0) _impl_ppz_HOT
       {
         ostream << ' ';
       }
@@ -1757,16 +1771,15 @@ namespace Parallilos
   }
 #endif
 }
-#undef PARALLILOS_INLINE
-#undef PARALLILOS_PRAGMA
-#undef PARALLILOS_CLANG_IGNORE
-#undef PARALLILOS_COLD
-#undef PARALLILOS_HOT
-#undef PARALLILOS_THREADSAFE
-#undef PARALLILOS_THREADLOCAL
-#undef PARALLILOS_MAKE_MUTEX
-#undef PARALLILOS_LOCK
-#undef PARALLILOS_MAKE_SIMD_SPECIALIZATION
+#undef _impl_ppz_INLINE
+#undef _impl_ppz_PRAGMA
+#undef _impl_ppz_IGNORE
+#undef _impl_ppz_COLD
+#undef _impl_ppz_HOT
+#undef _impl_ppz_THREADLOCAL
+#undef _impl_ppz_DECLARE_MUTEX
+#undef _impl_ppz_DECLARE_LOCK
+#undef _impl_ppz_MAKE_SIMD_SPECIALIZATION
 #else
 #error "Parallilos: Support for ISO C++11 is required"
 #endif
