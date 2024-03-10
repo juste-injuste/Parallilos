@@ -57,7 +57,7 @@ ppz::SIMD;
 # include <typeinfo>    // for typeid
 # include <cstdio>      // for std::sprintf
 #endif
-//----------------------------------------------------------------------------------------------------------------------
+//---SIMD intrinsic functions libraries---------------------------------------------------------------------------------
 #if not defined(__OPTIMIZE__)
 # define __OPTIMIZE__
 # define _ppz_impl_OPTIMIZE
@@ -80,29 +80,28 @@ ppz::SIMD;
 #endif
 #if defined(__SSE4_2__)
 # define  _ppz_impl_SSE4_2
-# include <immintrin.h>
+# include <nmmintrin.h>
 #endif
 #if defined(__SSE4_1__)
 # define  _ppz_impl_SSE4_1
-# include <immintrin.h>
+# include <smmintrin.h>
 #endif
 #if defined(__SSSE3__)
 # define  _ppz_impl_SSSE3
-# include <immintrin.h>
+# include <tmmintrin.h>
 #endif
 #if defined(__SSE3__)
 # define  _ppz_impl_SSE3
-# include <immintrin.h>
+# include <pmmintrin.h>
 #endif
 #if defined(__SSE2__)
 # define  _ppz_impl_SSE2
-# include <immintrin.h>
+# include <emmintrin.h>
 #endif
 #if defined(__SSE__)
 # define  _ppz_impl_SSE
-# include <immintrin.h>
+# include <xmmintrin.h>
 #endif
-
 // #if defined(__ARM_NEON) or defined(__ARM_NEON__)
 // # if defined(__ARM_ARCH_64)
 // #   define _ppz_impl_NEON64
@@ -112,7 +111,6 @@ ppz::SIMD;
 // #   include <arm_neon.h>
 // # endif
 // #endif
-
 #if defined(_ppz_impl_OPTIMIZE)
 # undef __OPTIMIZE__
 # undef _ppz_impl_OPTIMIZE
@@ -857,14 +855,14 @@ namespace ppz
         using Mask = MASK_TYPE;                                                             \
         static constexpr const char* set = SET;                                             \
         static constexpr                                                                    \
-        auto parallel(const size_t n_elements_) noexcept -> _impl::_par_iterator<size>          \
+        auto parallel(const size_t n_elements_) noexcept -> _impl::_par_iterator<size>      \
         {                                                                                   \
-          return _impl::_par_iterator<size>(n_elements_);                                       \
+          return _impl::_par_iterator<size>(n_elements_);                                   \
         }                                                                                   \
         static constexpr                                                                    \
-        auto sequential(const size_t n_elements_) noexcept -> _impl::_seq_iterator<size>      \
+        auto sequential(const size_t n_elements_) noexcept -> _impl::_seq_iterator<size>    \
         {                                                                                   \
-          return _impl::_seq_iterator<size>(n_elements_);                                     \
+          return _impl::_seq_iterator<size>(n_elements_);                                   \
         }                                                                                   \
       };
   }
@@ -875,8 +873,8 @@ namespace ppz
   _ppz_impl_MAKE_SIMD_SPECIALIZATION(float, __m512, __mmask16, 64, "AVX512F");
 # define _ppz_impl_F32_LOADU(data)           _mm512_loadu_ps(data)
 # define _ppz_impl_F32_LOADA(data)           _mm512_load_ps(data)
-# define _ppz_impl_F32_STOREU(addr, data)    _mm512_storeu_ps((Toid*)addr, data)
-# define _ppz_impl_F32_STOREA(addr, data)    _mm512_store_ps((Toid*)addr, data)
+# define _ppz_impl_F32_STOREU(addr, data)    _mm512_storeu_ps(reinterpret_cast<void*>(addr), data)
+# define _ppz_impl_F32_STOREA(addr, data)    _mm512_store_ps(reinterpret_cast<void*>(addr), data)
 # define _ppz_impl_F32_SETVAL(value)         _mm512_set1_ps(value)
 # define _ppz_impl_F32_SETZERO()             _mm512_setzero_ps()
 # define _ppz_impl_F32_MUL(a, b)             _mm512_mul_ps(a, b)
@@ -997,7 +995,6 @@ namespace ppz
 #endif
 
 #ifdef _ppz_impl_F32
-  // load a vector with zeros
   template<>
   _ppz_impl_INLINE
   SIMD<float>::Type simd_setzero<float>() noexcept
@@ -1006,7 +1003,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_SETZERO
   }
 
-  // load a vector from unaligned data
   _ppz_impl_INLINE
   SIMD<float>::Type simd_loadu(const float* const _ppz_impl_RESTRICT data) noexcept
   {
@@ -1014,7 +1010,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_LOADU
   }
 
-  // load a vector from aligned data
   _ppz_impl_INLINE
   SIMD<float>::Type simd_loada(const float* const _ppz_impl_RESTRICT data) noexcept
   {
@@ -1022,7 +1017,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_LOADA
   }
 
-  // store a vector into unaligned memory
   _ppz_impl_INLINE
   void simd_storeu(float* const _ppz_impl_RESTRICT addr, const SIMD<float>::Type& data)
   {
@@ -1030,7 +1024,6 @@ namespace ppz
 #   undef _ppz_impl_F32_STOREU
   }
 
-  // store a vector into aligned memory
   _ppz_impl_INLINE
   void simd_storea(float* const _ppz_impl_RESTRICT addr, const SIMD<float>::Type& data)
   {
@@ -1038,7 +1031,6 @@ namespace ppz
 #   undef _ppz_impl_F32_STOREA
   }
 
-  // load a vector with a specific value
   template<>
   _ppz_impl_INLINE
   SIMD<float>::Type simd_setval(const float value) noexcept
@@ -1047,7 +1039,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_SETVAL
   }
 
-  // [a] + [b]
   _ppz_impl_INLINE
   SIMD<float>::Type simd_add(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1055,7 +1046,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_ADD
   }
 
-  // [a] * [b]
   _ppz_impl_INLINE
   SIMD<float>::Type simd_mul(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1063,7 +1053,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_MUL
   }
 
-  // [a] - [b]
   _ppz_impl_INLINE
   SIMD<float>::Type simd_sub(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1071,7 +1060,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_SUB
   }
 
-  // [a] / [b]
   _ppz_impl_INLINE
   SIMD<float>::Type simd_div(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1079,7 +1067,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_DIV
   }
 
-  // [a] + ([b] * [c])
   _ppz_impl_INLINE
   SIMD<float>::Type simd_addmul(const SIMD<float>::Type& a, const SIMD<float>::Type& b, const SIMD<float>::Type& c) noexcept
   {
@@ -1087,7 +1074,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_ADDMUL
   }
 
-  // [a] - ([b] * [c])
   _ppz_impl_INLINE
   SIMD<float>::Type simd_submul(const SIMD<float>::Type& a, const SIMD<float>::Type& b, const SIMD<float>::Type& c) noexcept
   {
@@ -1095,7 +1081,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_SUBMUL
   }
 
-  // sqrt([a])
   _ppz_impl_INLINE
   SIMD<float>::Type simd_sqrt(const SIMD<float>::Type& a) noexcept
   {
@@ -1103,7 +1088,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_SQRT
   }
 
-  // abs([a])
   _ppz_impl_INLINE
   SIMD<float>::Type simd_abs(const SIMD<float>::Type& a) noexcept
   {
@@ -1111,7 +1095,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_ABS
   }
 
-  // [a] == [b]
   _ppz_impl_INLINE
   SIMD<float>::Mask simd_eq(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1119,7 +1102,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_EQ
   }
 
-  // [a] != [b]
   _ppz_impl_INLINE
   SIMD<float>::Mask simd_neq(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1127,7 +1109,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_NEQ
   }
 
-  // [a] > [b]
   _ppz_impl_INLINE
   SIMD<float>::Mask simd_gt(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1135,7 +1116,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_GT
   }
 
-  // [a] >= [b]
   _ppz_impl_INLINE
   SIMD<float>::Mask simd_gte(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1143,7 +1123,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_GTE
   }
 
-  // [a] < [b]
   _ppz_impl_INLINE
   SIMD<float>::Mask simd_lt(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1151,7 +1130,6 @@ namespace ppz
 #   undef  _ppz_impl_F32_LT
   }
 
-  // [a] <= [b]
   _ppz_impl_INLINE
   SIMD<float>::Mask simd_lte(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
   {
@@ -1166,8 +1144,8 @@ namespace ppz
   _ppz_impl_MAKE_SIMD_SPECIALIZATION(double, __m512d, __mmask8, 64, "AVX512F");
 # define _ppz_impl_F64_LOADU(data)           _mm512_loadu_pd(data)
 # define _ppz_impl_F64_LOADA(data)           _mm512_load_pd(data)
-# define _ppz_impl_F64_STOREU(addr, data)    _mm512_storeu_pd((Toid*)addr, data)
-# define _ppz_impl_F64_STOREA(addr, data)    _mm512_store_pd((Toid*)addr, data)
+# define _ppz_impl_F64_STOREU(addr, data)    _mm512_storeu_pd(reinterpret_cast<void*>(addr), data)
+# define _ppz_impl_F64_STOREA(addr, data)    _mm512_store_pd(reinterpret_cast<void*>(addr), data)
 # define _ppz_impl_F64_SETVAL(value)         _mm512_set1_pd(value)
 # define _ppz_impl_F64_SETZERO()             _mm512_setzero_pd()
 # define _ppz_impl_F64_MUL(a, b)             _mm512_mul_pd(a, b)
@@ -1284,11 +1262,9 @@ namespace ppz
 // # define _ppz_impl_F32_GTE(a, b)             vcgeq_f64(a, b)
 // # define _ppz_impl_F32_LT(a, b)              vcltq_f64(a, b)
 // # define _ppz_impl_F32_LTE(a, b)             vcleq_f64(a, b)
-
 #endif
 
 #ifdef _ppz_impl_F64
-  // load a vector with zeros
   template<>
   _ppz_impl_INLINE
   SIMD<double>::Type simd_setzero<double>() noexcept
@@ -1297,7 +1273,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_SETZERO
   }
 
-  // load a vector from unaligned data
   _ppz_impl_INLINE
   SIMD<double>::Type simd_loadu(const double* const _ppz_impl_RESTRICT data) noexcept
   {
@@ -1305,7 +1280,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_LOADU
   }
 
-  // load a vector from aligned data
   _ppz_impl_INLINE
   SIMD<double>::Type simd_loada(const double* const _ppz_impl_RESTRICT data) noexcept
   {
@@ -1313,7 +1287,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_LOADA
   }
 
-  // store a vector into unaligned memory
   _ppz_impl_INLINE
   void simd_storeu(double* const _ppz_impl_RESTRICT addr, const SIMD<double>::Type& data)
   {
@@ -1321,7 +1294,6 @@ namespace ppz
 #   undef _ppz_impl_F64_STOREU
   }
 
-  // store a vector into aligned memory
   _ppz_impl_INLINE
   void simd_storea(double* const _ppz_impl_RESTRICT addr, const SIMD<double>::Type& data)
   {
@@ -1329,7 +1301,6 @@ namespace ppz
 #   undef _ppz_impl_F64_STOREA
   }
 
-  // load a vector with a specific value
   template<>
   _ppz_impl_INLINE
   SIMD<double>::Type simd_setval(const double value) noexcept
@@ -1338,7 +1309,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_SETVAL
   }
 
-  // [a] + [b]
   _ppz_impl_INLINE
   SIMD<double>::Type simd_add(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1346,7 +1316,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_ADD
   }
 
-  // [a] * [b]
   _ppz_impl_INLINE
   SIMD<double>::Type simd_mul(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1354,7 +1323,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_MUL
   }
 
-  // [a] - [b]
   _ppz_impl_INLINE
   SIMD<double>::Type simd_sub(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1362,7 +1330,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_SUB
   }
 
-  // [a] / [b]
   _ppz_impl_INLINE
   SIMD<double>::Type simd_div(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1370,7 +1337,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_DIV
   }
 
-  // [a] + ([b] * [c])
   _ppz_impl_INLINE
   SIMD<double>::Type simd_addmul(const SIMD<double>::Type& a, const SIMD<double>::Type& b, const SIMD<double>::Type& c) noexcept
   {
@@ -1378,7 +1344,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_ADDMUL
   }
 
-  // [a] - ([b] * [c])
   _ppz_impl_INLINE
   SIMD<double>::Type simd_submul(const SIMD<double>::Type& a, const SIMD<double>::Type& b, const SIMD<double>::Type& c) noexcept
   {
@@ -1386,7 +1351,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_SUBMUL
   }
 
-  // sqrt([a])
   _ppz_impl_INLINE
   SIMD<double>::Type simd_sqrt(const SIMD<double>::Type& a) noexcept
   {
@@ -1394,7 +1358,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_SQRT
   }
 
-  // abs([a])
   _ppz_impl_INLINE
   SIMD<double>::Type simd_abs(const SIMD<double>::Type& a) noexcept
   {
@@ -1402,7 +1365,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_ABS
   }
 
-  // [a] == [b]
   _ppz_impl_INLINE
   SIMD<double>::Mask simd_eq(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1410,7 +1372,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_EQ
   }
 
-  // [a] != [b]
   _ppz_impl_INLINE
   SIMD<double>::Mask simd_neq(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1418,7 +1379,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_NEQ
   }
 
-  // [a] > [b]
   _ppz_impl_INLINE
   SIMD<double>::Mask simd_gt(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1426,7 +1386,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_GT
   }
 
-  // [a] >= [b]
   _ppz_impl_INLINE
   SIMD<double>::Mask simd_gte(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1434,7 +1393,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_GTE
   }
 
-  // [a] < [b]
   _ppz_impl_INLINE
   SIMD<double>::Mask simd_lt(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1442,7 +1400,6 @@ namespace ppz
 #   undef  _ppz_impl_F64_LT
   }
 
-  // [a] <= [b]
   _ppz_impl_INLINE
   SIMD<double>::Mask simd_lte(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
   {
@@ -1458,8 +1415,8 @@ namespace ppz
   _ppz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, __m512i, __mmask16, 64, "AVX512F");
 # define _ppz_impl_I32_LOADU(data)           _mm512_loadu_si512(data)
 # define _ppz_impl_I32_LOADA(data)           _mm512_load_si512(data)
-# define _ppz_impl_I32_STOREU(addr, data)    _mm512_storeu_si512((Toid*)addr, data)
-# define _ppz_impl_I32_STOREA(addr, data)    _mm512_store_si512((Toid*)addr, data)
+# define _ppz_impl_I32_STOREU(addr, data)    _mm512_storeu_si512(reinterpret_cast<void*>(addr), data)
+# define _ppz_impl_I32_STOREA(addr, data)    _mm512_store_si512(reinterpret_cast<void*>(addr), data)
 # define _ppz_impl_I32_SETVAL(value)         _mm512_set1_epi32(value)
 # define _ppz_impl_I32_SETZERO()             _mm512_setzero_si512()
 # define _ppz_impl_I32_MUL(a, b)             _mm512_mullo_epi32 (a, b)
@@ -1576,12 +1533,12 @@ namespace ppz
 # define _ppz_impl_I32_STOREA(addr, data)    _mm_store_si128((__m128i*)addr, data)
 # define _ppz_impl_I32_SETVAL(value)         _mm_set1_epi32(value)
 # define _ppz_impl_I32_SETZERO()             _mm_setzero_si128()
-# define _ppz_impl_I32_MUL(a, b)             _mm_mullo_epi32(a, b)
+# define _ppz_impl_I32_MUL(a, b)             _mm_mul_epu32(a, b)
 # define _ppz_impl_I32_ADD(a, b)             _mm_add_epi32(a, b)
 # define _ppz_impl_I32_SUB(a, b)             _mm_sub_epi32(a, b)
 # define _ppz_impl_I32_DIV(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-# define _ppz_impl_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_mul_epi32(b, c))
-# define _ppz_impl_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_mul_epi32(b, c))
+# define _ppz_impl_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_mul_epu32(b, c))
+# define _ppz_impl_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_mul_epu32(b, c))
 # define _ppz_impl_I32_SQRT(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
 # define _ppz_impl_I32_ABS(a)                _mm_abs_epi32(a)
 # if defined(_ppz_impl_SVML)
@@ -1614,12 +1571,15 @@ namespace ppz
 # define _ppz_impl_I32_STOREA(addr, data)    _mm_store_si128((__m128i*)addr, data)
 # define _ppz_impl_I32_SETVAL(value)         _mm_set1_epi32(value)
 # define _ppz_impl_I32_SETZERO()             _mm_setzero_si128()
-# define _ppz_impl_I32_MUL(a, b)             _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+// # define _ppz_impl_I32_MUL(a, b)             _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
+# define _ppz_impl_I32_MUL(a, b)             _mm_mul_epu32(a, b)
 # define _ppz_impl_I32_ADD(a, b)             _mm_add_epi32(a, b)
 # define _ppz_impl_I32_SUB(a, b)             _mm_sub_epi32(a, b)
 # define _ppz_impl_I32_DIV(a, b)             _mm_cvtps_epi32(_mm_div_ps(_mm_cvtepi32_ps(a), _mm_cvtepi32_ps(b)))
-# define _ppz_impl_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
-# define _ppz_impl_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+// # define _ppz_impl_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+// # define _ppz_impl_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(b), _mm_cvtepi32_ps(c))))
+# define _ppz_impl_I32_ADDMUL(a, b, c)       _mm_add_epi32(a, _mm_mul_epu32(b, c))
+# define _ppz_impl_I32_SUBMUL(a, b, c)       _mm_sub_epi32(a, _mm_mul_epu32(b, c))
 # define _ppz_impl_I32_SQRT(a)               _mm_cvtps_epi32(_mm_sqrt_ps(_mm_cvtepi32_ps(a)))
 # define _ppz_impl_I32_ABS(a)                                   \
   [&]() -> __m128i {                                            \
@@ -1644,84 +1604,88 @@ namespace ppz
 #endif
 
 #ifdef _ppz_impl_I32
-  // load a vector with zeros
   template<>
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_setzero<int32_t>() noexcept
   {
     return _ppz_impl_I32_SETZERO();
   }
+
   template<>
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_setzero<uint32_t>() noexcept
+  SIMD<uint32_t>::Type simd_setzero<uint32_t>() noexcept
   {
     return _ppz_impl_I32_SETZERO();
 #   undef  _ppz_impl_I32_SETZERO
   }
 
-  // load a vector from unaligned data
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_loadu(const int32_t* const _ppz_impl_RESTRICT data) noexcept
   {
     return _ppz_impl_I32_LOADU(data);
   }
+
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_loadu(const uint32_t* const _ppz_impl_RESTRICT data) noexcept
+  SIMD<uint32_t>::Type simd_loadu(const uint32_t* const _ppz_impl_RESTRICT data) noexcept
   {
     return _ppz_impl_I32_LOADU(data);
 #   undef  _ppz_impl_I32_LOADU
   }
 
-  // load a vector from aligned data
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_loada(const int32_t* const _ppz_impl_RESTRICT data) noexcept
   {
     return _ppz_impl_I32_LOADA(data);
   }
+
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_loada(const uint32_t* const _ppz_impl_RESTRICT data) noexcept
+  SIMD<uint32_t>::Type simd_loada(const uint32_t* const _ppz_impl_RESTRICT data) noexcept
   {
     return _ppz_impl_I32_LOADA(data);
 #   undef  _ppz_impl_I32_LOADA
   }
 
-  // store a vector into unaligned memory
   _ppz_impl_INLINE
   void simd_storeu(int32_t addr[], const SIMD<int32_t>::Type& data)
+  {
+    _ppz_impl_I32_STOREU(addr, data);
+  }
+
+  _ppz_impl_INLINE
+  void simd_storeu(uint32_t addr[], const SIMD<uint32_t>::Type& data)
   {
     _ppz_impl_I32_STOREU(addr, data);
 #   undef _ppz_impl_I32_STOREU
   }
 
-  // store a vector into aligned memory
   _ppz_impl_INLINE
   void simd_storea(int32_t addr[], const SIMD<int32_t>::Type& data)
   {
     _ppz_impl_I32_STOREA(addr, data);
   }
+
   _ppz_impl_INLINE
-  void simd_storea(uint32_t addr[], const SIMD<int32_t>::Type& data)
+  void simd_storea(uint32_t addr[], const SIMD<uint32_t>::Type& data)
   {
     _ppz_impl_I32_STOREA(addr, data);
 #   undef _ppz_impl_I32_STOREA
   }
 
-  // load a vector with a specific value
   template<>
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_setval(const int32_t value) noexcept
   {
     return _ppz_impl_I32_SETVAL(value);
   }
+
   template<>
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_setval(const uint32_t value) noexcept
+  SIMD<uint32_t>::Type simd_setval(const uint32_t value) noexcept
   {
     return _ppz_impl_I32_SETVAL(value);
 #   undef  _ppz_impl_I32_SETVAL
   }
 
-  // [a] + [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_add(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1729,7 +1693,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_ADD
   }
 
-  // [a] * [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_mul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1737,7 +1700,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_MUL
   }
 
-  // [a] - [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_sub(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1745,7 +1707,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_SUB
   }
 
-  // [a] / [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_div(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1753,7 +1714,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_DIV
   }
 
-  // [a] + ([b] * [c])
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_addmul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b, const SIMD<int32_t>::Type& c) noexcept
   {
@@ -1761,7 +1721,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_ADDMUL
   }
 
-  // [a] - ([b] * [c])
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_submul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b, const SIMD<int32_t>::Type& c) noexcept
   {
@@ -1769,7 +1728,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_SUBMUL
   }
 
-  // sqrt([a])
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_sqrt(const SIMD<int32_t>::Type& a) noexcept
   {
@@ -1777,7 +1735,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_SQRT
   }
 
-  // abs([a])
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_abs(const SIMD<int32_t>::Type& a) noexcept
   {
@@ -1785,7 +1742,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_ABS
   }
 
-  // [a] == [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Mask simd_eq(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1793,7 +1749,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_EQ
   }
 
-  // [a] != [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Mask simd_neq(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1801,7 +1756,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_NEQ
   }
 
-  // [a] > [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Mask simd_gt(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1809,7 +1763,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_GT
   }
 
-  // [a] >= [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Mask simd_gte(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1817,7 +1770,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_GTE
   }
 
-  // [a] < [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Mask simd_lt(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1825,7 +1777,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_LT
   }
 
-  // [a] <= [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Mask simd_lte(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1833,7 +1784,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_LTE
   }
 
-  // ![a]
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_compl(const SIMD<int32_t>::Type& a) noexcept
   {
@@ -1841,7 +1791,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_BW_NOT
   }
 
-  // [a] & [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_and(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1849,7 +1798,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_BW_AND
   }
 
-  // !([a] & [b])
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_nand(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1857,7 +1805,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_BW_NAND
   }
 
-  // [a] | [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_or(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1865,7 +1812,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_BW_OR
   }
 
-  // !([a] | [b])
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_nor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1873,7 +1819,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_BW_NOR
   }
 
-  // [a] ^ [b]
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_xor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {
@@ -1881,7 +1826,6 @@ namespace ppz
 #   undef  _ppz_impl_I32_BW_XOR
   }
 
-  // !([a] ^ [b])
   _ppz_impl_INLINE
   SIMD<int32_t>::Type simd_xnor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
   {

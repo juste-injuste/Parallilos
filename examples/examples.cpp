@@ -1,23 +1,23 @@
-#include <iostream>
-#include <cstdint>  //
+#include <iostream> // for std::cout
+#include <cstdint>  // for fixed-size integers
 #include <typeinfo> // for typeid
 
 // #define PPZ_DEBUGGING
-#include "include/Parallilos.hpp"
+#include "Parallilos.hpp"
 
 template<typename T> inline
 void print_array(const ppz::Array<T>& array)
 {
-  using namespace ppz;
-
   for (unsigned k = 0; k < array.size(); ++k)
+  {
     std::cout << array[k] << ' ';
+  }
   std::cout << '\n';
   
-  std::cout << "Instruction set:          " << SIMD<T>::set  << '\n';
-  std::cout << "Data per parallel passes: " << SIMD<T>::size << '\n';
-  std::cout << "Parallel passes:          " << SIMD<T>::parallel(array.size()).passes   << '\n';
-  std::cout << "Sequential passes:        " << SIMD<T>::sequential(array.size()).passes << '\n';
+  std::cout << "Instruction set:          " << ppz::SIMD<T>::set  << '\n';
+  std::cout << "Data per parallel passes: " << ppz::SIMD<T>::size << '\n';
+  std::cout << "Parallel passes:          " << ppz::SIMD<T>::parallel(array.size()).passes   << '\n';
+  std::cout << "Sequential passes:        " << ppz::SIMD<T>::sequential(array.size()).passes << '\n';
 }
 
 int main()
