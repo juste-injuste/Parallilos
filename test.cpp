@@ -2,7 +2,7 @@
 
 int test()
 {
-  using namespace Parallilos;
+  using namespace ppz;
 
   return 0;
 }
