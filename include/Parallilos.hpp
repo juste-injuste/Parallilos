@@ -128,10 +128,10 @@ namespace ppz
   struct type_t {}; struct simd_t {}; struct mask_t {};
 
   // loading/storing functions
-  simd_t simd_loadu (const type_t* addr);        // load  unaligned
-  simd_t simd_loada (const type_t* addr);        // load  aligned
-  void   simd_storeu(type_t* addr, simd_t data); // store unaligned
-  void   simd_storea(type_t* addr, simd_t data); // store aligned
+  simd_t simd_loadu (const type_t* const addr);        // load  unaligned
+  simd_t simd_loada (const type_t* const addr);        // load  aligned
+  void   simd_storeu(type_t* const addr, simd_t data); // store unaligned
+  void   simd_storea(type_t* const addr, simd_t data); // store aligned
 
   // vector creation functions
   simd_t simd_setzero(            ); // [result] = 0
@@ -182,11 +182,13 @@ namespace ppz
   namespace _impl
   {
 # if defined(__clang__)
-#   define _ppz_impl_INLINE   __attribute__((always_inline, artificial)) inline
-#   define _ppz_impl_RESTRICT __restrict__
+#   define _ppz_impl_INLINE               __attribute__((always_inline, artificial)) inline
+#   define _ppz_impl_RESTRICT             __restrict__
+#   define _ppz_impl_INDEX(VECTOR, INDEX) VECTOR[INDEX]
 # elif defined(__GNUC__)
-#   define _ppz_impl_INLINE __attribute__((always_inline, artificial)) inline
-#   define _ppz_impl_RESTRICT __restrict__
+#   define _ppz_impl_INLINE               __attribute__((always_inline, artificial)) inline
+#   define _ppz_impl_RESTRICT             __restrict__
+#   define _ppz_impl_INDEX(VECTOR, INDEX) VECTOR[INDEX]
 // # elif defined(__MINGW32__) or defined(__MINGW64__)
 // #   define _ppz_impl_INLINE __attribute__((always_inline)) inline
 // #   define _ppz_impl_RESTRICT
@@ -206,6 +208,7 @@ namespace ppz
 # else
 #   define _ppz_impl_INLINE   inline
 #   define _ppz_impl_RESTRICT
+#   define _ppz_impl_INDEX(VECTOR, INDEX) VECTOR[INDEX] // hopeful
 # endif
 
 #   define _ppz_impl_PRAGMA(PRAGMA) _Pragma(#PRAGMA)
@@ -424,19 +427,19 @@ namespace ppz
   static_assert(std::is_arithmetic<type>::value, "Array: 'type' must be arithmetic.");
   public:
     inline constexpr
-    auto data(size_t k = 0) const noexcept -> const type*;
+    auto data(size_t index = 0) const noexcept -> const type*;
 
     inline _ppz_impl_CONSTEXPR_CPP14
-    auto data(size_t k = 0) noexcept -> type*;
+    auto data(size_t index = 0) noexcept -> type*;
 
     inline constexpr
     auto size() const noexcept -> size_t;
     
     inline constexpr 
-    auto operator[](size_t k) const noexcept -> type;
+    auto operator[](size_t index) const noexcept -> type;
 
     inline _ppz_impl_CONSTEXPR_CPP14
-    auto operator[](size_t k) noexcept -> type&;
+    auto operator[](size_t index) noexcept -> type&;
 
     inline constexpr
     operator type*() noexcept;
@@ -444,8 +447,8 @@ namespace ppz
     inline constexpr
     auto release() noexcept -> type*;
 
-    inline // interpret aligned array as a vector, k is an offset in elements into the array
-    auto as_vector(size_t k) noexcept -> typename SIMD<type>::Type&;
+    inline
+    auto as_vector(size_t index) noexcept -> typename SIMD<type>::Type&;
 
     inline _ppz_impl_CONSTEXPR_CPP14
     Array(size_t number_of_elements) noexcept;
@@ -480,16 +483,16 @@ namespace ppz
 //----------------------------------------------------------------------------------------------------------------------
   template<typename type>
   constexpr
-  auto Array<type>::data(const size_t k) const noexcept -> const type*
+  auto Array<type>::data(const size_t index_) const noexcept -> const type*
   {
-    return _array + k;
+    return _array + index_;
   }
 
   template<typename type>
   _ppz_impl_CONSTEXPR_CPP14
-  auto Array<type>::data(const size_t k) noexcept -> type*
+  auto Array<type>::data(const size_t index_) noexcept -> type*
   {
-    return _array + k;
+    return _array + index_;
   }
 
   template<typename type>
@@ -501,16 +504,16 @@ namespace ppz
 
   template<typename type>
   constexpr
-  auto Array<type>::operator[](const size_t k) const noexcept -> type
+  auto Array<type>::operator[](const size_t index_) const noexcept -> type
   {
-    return _array[k];
+    return _array[index_];
   }
 
   template<typename type>
   _ppz_impl_CONSTEXPR_CPP14
-  auto Array<type>::operator[](const size_t k) noexcept -> type&
+  auto Array<type>::operator[](const size_t index_) noexcept -> type&
   {
-    return _array[k];
+    return _array[index_];
   }
 
   template<typename type>
@@ -562,7 +565,7 @@ namespace ppz
     }()),
     _numel(_array == nullptr ? 0 : number_of_elements_)
   {
-    _ppz_impl_DEBUG_MESSAGE("created array of size %zu", _numel);
+    _ppz_impl_DEBUG_MESSAGE("created array of size %zu.", _numel);
   }
 
   template<typename type>
@@ -572,10 +575,10 @@ namespace ppz
   {
     if _ppz_impl_EXPECTED(_numel != 0)
     {
-      size_t k = 0;
-      for (type value : initializer_list_)
+      size_t index = 0;
+      for (const type value : initializer_list_)
       {
-        _array[k++] = value;
+        _array[index++] = value;
       }
     }
   }
@@ -606,16 +609,18 @@ namespace ppz
   }
     
   template<typename type>
-  auto Array<type>::as_vector(const size_t k) noexcept -> typename SIMD<type>::Type&
+  auto Array<type>::as_vector(const size_t index_) noexcept -> typename SIMD<type>::Type&
   {
-    return reinterpret_cast<typename SIMD<type>::Type&>(_array[k]);
+    // maybe change this to make index be not a per ('type') jump but a per ('type' * SIMD<'type'>::size)
+    // jump and also handle when debugging/safe if the index is too large
+    return reinterpret_cast<typename SIMD<type>::Type&>(_array[index_]);
   }
 // ---------------------------------------------------------------------------------------------------------------------
   template<typename type>
   constexpr
   typename SIMD<type>::Type simd_loadu(const type* const _ppz_impl_RESTRICT data) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type*>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type*>());
     return *data;
   }
 
@@ -623,7 +628,7 @@ namespace ppz
   constexpr
   typename SIMD<type>::Type simd_loada(const type* const _ppz_impl_RESTRICT data) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type*>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type*>());
     return *data;
   }
 
@@ -631,7 +636,7 @@ namespace ppz
   constexpr
   void simd_storeu(type* const _ppz_impl_RESTRICT addr, const typename SIMD<type>::Type& data)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type*>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type*>());
     *addr = data;
   }
 
@@ -639,7 +644,7 @@ namespace ppz
   constexpr
   void simd_storea(type* const _ppz_impl_RESTRICT addr, const typename SIMD<type>::Type& data)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type*>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type*>());
     *addr = data;
   }
 
@@ -647,7 +652,7 @@ namespace ppz
   constexpr
   typename SIMD<type>::Type simd_setzero() noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return 0;
   }
 
@@ -655,7 +660,7 @@ namespace ppz
   constexpr
   auto simd_setval(const type value) noexcept -> typename SIMD<type>::Type
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return value;
   }
 
@@ -663,7 +668,7 @@ namespace ppz
   constexpr
   type simd_add(const type a, const type b)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a + b;
   }
 
@@ -671,7 +676,7 @@ namespace ppz
   constexpr
   type simd_mul(const type a, const type b)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a * b;
   }
 
@@ -679,7 +684,7 @@ namespace ppz
   constexpr
   type simd_sub(const type a, const type b)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a - b;
   }
 
@@ -687,7 +692,7 @@ namespace ppz
   constexpr
   type simd_div(const type a, const type b)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a / b;
   }
 
@@ -695,7 +700,7 @@ namespace ppz
   constexpr
   type simd_addmul(const type a, const type b, const type c)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a + b * c;
   }
 
@@ -703,7 +708,7 @@ namespace ppz
   constexpr
   type simd_submul(const type a, const type b, const type c)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a - b * c;
   }
 
@@ -711,7 +716,7 @@ namespace ppz
   constexpr
   type simd_sqrt(const type a)
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return std::sqrt(a);
   }
 
@@ -719,7 +724,7 @@ namespace ppz
   constexpr
   type simd_abs(const type a) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return std::abs(a);
   }
 
@@ -727,7 +732,7 @@ namespace ppz
   constexpr
   bool simd_eq(const type a, const type b) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a == b;
   }
 
@@ -735,7 +740,7 @@ namespace ppz
   constexpr
   bool simd_neq(const type a, const type b) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a != b;
   }
 
@@ -743,7 +748,7 @@ namespace ppz
   constexpr
   bool simd_gt(const type a, const type b) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a > b;
   }
 
@@ -751,7 +756,7 @@ namespace ppz
   constexpr
   bool simd_gte(const type a, const type b) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a >= b;
   }
 
@@ -759,7 +764,7 @@ namespace ppz
   constexpr
   bool simd_lt(const type a, const type b) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a < b;
   }
 
@@ -767,7 +772,7 @@ namespace ppz
   constexpr
   bool simd_lte(const type a, const type b) noexcept
   {
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a <= b;
   }
 
@@ -777,7 +782,7 @@ namespace ppz
   {
     static_assert(std::is_integral<type>::value, "simd_compl: 'type' must be integral.");
 
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return ~a;
   }
 
@@ -787,7 +792,7 @@ namespace ppz
   {
     static_assert(std::is_integral<type>::value, "simd_and: 'type' must be integral.");
 
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a & b;
   }
 
@@ -797,7 +802,7 @@ namespace ppz
   {
     static_assert(std::is_integral<type>::value, "simd_nand: 'type' must be integral.");
 
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return ~(a & b);
   }
 
@@ -807,7 +812,7 @@ namespace ppz
   {
     static_assert(std::is_integral<type>::value, "simd_or: 'type' must be integral.");
 
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a | b;
   }
 
@@ -817,7 +822,7 @@ namespace ppz
   {
     static_assert(std::is_integral<type>::value, "simd_nor: 'type' must be integral.");
 
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return ~(a | b);
   }
 
@@ -827,7 +832,7 @@ namespace ppz
   {
     static_assert(std::is_integral<type>::value, "simd_xor: 'type' must be integral.");
 
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return a ^ b;
   }
 
@@ -837,7 +842,7 @@ namespace ppz
   {
     static_assert(std::is_integral<type>::value, "simd_xnor: 'type' must be integral.");
 
-    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported", _impl::_type_name<type>());
+    _ppz_impl_DEBUG_MESSAGE("\"%s\" is not SIMD-supported.", _impl::_type_name<type>());
     return ~(a ^ b);
   }
 //----------------------------------------------------------------------------------------------------------------------
@@ -997,35 +1002,35 @@ namespace ppz
 #ifdef _ppz_impl_F32
   template<>
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_setzero<float>() noexcept
+  auto simd_setzero<float>() noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_SETZERO();
 #   undef  _ppz_impl_F32_SETZERO
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_loadu(const float* const _ppz_impl_RESTRICT data) noexcept
+  auto simd_loadu(const float* const _ppz_impl_RESTRICT data) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_LOADU(data);
 #   undef  _ppz_impl_F32_LOADU
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_loada(const float* const _ppz_impl_RESTRICT data) noexcept
+  auto simd_loada(const float* const _ppz_impl_RESTRICT data) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_LOADA(data);
 #   undef  _ppz_impl_F32_LOADA
   }
 
   _ppz_impl_INLINE
-  void simd_storeu(float* const _ppz_impl_RESTRICT addr, const SIMD<float>::Type& data)
+  void simd_storeu(float* const _ppz_impl_RESTRICT addr, const SIMD<float>::Type data)
   {
     _ppz_impl_F32_STOREU(addr, data);
 #   undef _ppz_impl_F32_STOREU
   }
 
   _ppz_impl_INLINE
-  void simd_storea(float* const _ppz_impl_RESTRICT addr, const SIMD<float>::Type& data)
+  void simd_storea(float* const _ppz_impl_RESTRICT addr, const SIMD<float>::Type data)
   {
     _ppz_impl_F32_STOREA(addr, data);
 #   undef _ppz_impl_F32_STOREA
@@ -1033,105 +1038,105 @@ namespace ppz
 
   template<>
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_setval(const float value) noexcept
+  auto simd_setval(const float value) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_SETVAL(value);
 #   undef  _ppz_impl_F32_SETVAL
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_add(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_add(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_ADD(a, b);
 #   undef  _ppz_impl_F32_ADD
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_mul(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_mul(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_MUL(a, b);
 #   undef  _ppz_impl_F32_MUL
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_sub(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_sub(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_SUB(a, b);
 #   undef  _ppz_impl_F32_SUB
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_div(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_div(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_DIV(a, b);
 #   undef  _ppz_impl_F32_DIV
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_addmul(const SIMD<float>::Type& a, const SIMD<float>::Type& b, const SIMD<float>::Type& c) noexcept
+  auto simd_addmul(const SIMD<float>::Type a, const SIMD<float>::Type b, const SIMD<float>::Type c) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_ADDMUL(a, b, c);
 #   undef  _ppz_impl_F32_ADDMUL
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_submul(const SIMD<float>::Type& a, const SIMD<float>::Type& b, const SIMD<float>::Type& c) noexcept
+  auto simd_submul(const SIMD<float>::Type a, const SIMD<float>::Type b, const SIMD<float>::Type c) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_SUBMUL(a, b, c);
 #   undef  _ppz_impl_F32_SUBMUL
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_sqrt(const SIMD<float>::Type& a) noexcept
+  auto simd_sqrt(const SIMD<float>::Type a) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_SQRT(a);
 #   undef  _ppz_impl_F32_SQRT
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Type simd_abs(const SIMD<float>::Type& a) noexcept
+  auto simd_abs(const SIMD<float>::Type a) noexcept -> SIMD<float>::Type
   {
     return _ppz_impl_F32_ABS(a);
 #   undef  _ppz_impl_F32_ABS
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Mask simd_eq(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_eq(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Mask
   {
     return _ppz_impl_F32_EQ(a, b);
 #   undef  _ppz_impl_F32_EQ
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Mask simd_neq(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_neq(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Mask
   {
     return _ppz_impl_F32_NEQ(a, b);
 #   undef  _ppz_impl_F32_NEQ
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Mask simd_gt(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_gt(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Mask
   {
     return _ppz_impl_F32_GT(a, b);
 #   undef  _ppz_impl_F32_GT
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Mask simd_gte(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_gte(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Mask
   {
     return _ppz_impl_F32_GTE(a, b);
 #   undef  _ppz_impl_F32_GTE
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Mask simd_lt(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_lt(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Mask
   {
     return _ppz_impl_F32_LT(a, b);
 #   undef  _ppz_impl_F32_LT
   }
 
   _ppz_impl_INLINE
-  SIMD<float>::Mask simd_lte(const SIMD<float>::Type& a, const SIMD<float>::Type& b) noexcept
+  auto simd_lte(const SIMD<float>::Type a, const SIMD<float>::Type b) noexcept -> SIMD<float>::Mask
   {
     return _ppz_impl_F32_LTE(a, b);
 #   undef  _ppz_impl_F32_LTE
@@ -1267,35 +1272,35 @@ namespace ppz
 #ifdef _ppz_impl_F64
   template<>
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_setzero<double>() noexcept
+  auto simd_setzero<double>() noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_SETZERO();
 #   undef  _ppz_impl_F64_SETZERO
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_loadu(const double* const _ppz_impl_RESTRICT data) noexcept
+  auto simd_loadu(const double* const _ppz_impl_RESTRICT data) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_LOADU(data);
 #   undef  _ppz_impl_F64_LOADU
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_loada(const double* const _ppz_impl_RESTRICT data) noexcept
+  auto simd_loada(const double* const _ppz_impl_RESTRICT data) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_LOADA(data);
 #   undef  _ppz_impl_F64_LOADA
   }
 
   _ppz_impl_INLINE
-  void simd_storeu(double* const _ppz_impl_RESTRICT addr, const SIMD<double>::Type& data)
+  void simd_storeu(double* const _ppz_impl_RESTRICT addr, const SIMD<double>::Type data)
   {
     _ppz_impl_F64_STOREU(addr, data);
 #   undef _ppz_impl_F64_STOREU
   }
 
   _ppz_impl_INLINE
-  void simd_storea(double* const _ppz_impl_RESTRICT addr, const SIMD<double>::Type& data)
+  void simd_storea(double* const _ppz_impl_RESTRICT addr, const SIMD<double>::Type data)
   {
     _ppz_impl_F64_STOREA(addr, data);
 #   undef _ppz_impl_F64_STOREA
@@ -1303,105 +1308,105 @@ namespace ppz
 
   template<>
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_setval(const double value) noexcept
+  auto simd_setval(const double value) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_SETVAL(value);
 #   undef  _ppz_impl_F64_SETVAL
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_add(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_add(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_ADD(a, b);
 #   undef  _ppz_impl_F64_ADD
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_mul(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_mul(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_MUL(a, b);
 #   undef  _ppz_impl_F64_MUL
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_sub(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_sub(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_SUB(a, b);
 #   undef  _ppz_impl_F64_SUB
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_div(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_div(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_DIV(a, b);
 #   undef  _ppz_impl_F64_DIV
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_addmul(const SIMD<double>::Type& a, const SIMD<double>::Type& b, const SIMD<double>::Type& c) noexcept
+  auto simd_addmul(const SIMD<double>::Type a, const SIMD<double>::Type b, const SIMD<double>::Type c) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_ADDMUL(a, b, c);
 #   undef  _ppz_impl_F64_ADDMUL
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_submul(const SIMD<double>::Type& a, const SIMD<double>::Type& b, const SIMD<double>::Type& c) noexcept
+  auto simd_submul(const SIMD<double>::Type a, const SIMD<double>::Type b, const SIMD<double>::Type c) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_SUBMUL(a, b, c);
 #   undef  _ppz_impl_F64_SUBMUL
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_sqrt(const SIMD<double>::Type& a) noexcept
+  auto simd_sqrt(const SIMD<double>::Type a) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_SQRT(a);
 #   undef  _ppz_impl_F64_SQRT
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Type simd_abs(const SIMD<double>::Type& a) noexcept
+  auto simd_abs(const SIMD<double>::Type a) noexcept -> SIMD<double>::Type
   {
     return _ppz_impl_F64_ABS(a);
 #   undef  _ppz_impl_F64_ABS
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Mask simd_eq(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_eq(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Mask
   {
     return _ppz_impl_F64_EQ(a, b);
 #   undef  _ppz_impl_F64_EQ
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Mask simd_neq(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_neq(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Mask
   {
     return _ppz_impl_F64_NEQ(a, b);
 #   undef  _ppz_impl_F64_NEQ
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Mask simd_gt(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_gt(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Mask
   {
     return _ppz_impl_F64_GT(a, b);
 #   undef  _ppz_impl_F64_GT
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Mask simd_gte(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_gte(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Mask
   {
     return _ppz_impl_F64_GTE(a, b);
 #   undef  _ppz_impl_F64_GTE
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Mask simd_lt(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_lt(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Mask
   {
     return _ppz_impl_F64_LT(a, b);
 #   undef  _ppz_impl_F64_LT
   }
 
   _ppz_impl_INLINE
-  SIMD<double>::Mask simd_lte(const SIMD<double>::Type& a, const SIMD<double>::Type& b) noexcept
+  auto simd_lte(const SIMD<double>::Type a, const SIMD<double>::Type b) noexcept -> SIMD<double>::Mask
   {
     return _ppz_impl_F64_LTE(a, b);
 #   undef  _ppz_impl_F64_LTE
@@ -1606,66 +1611,66 @@ namespace ppz
 #ifdef _ppz_impl_I32
   template<>
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_setzero<int32_t>() noexcept
+  auto simd_setzero<int32_t>() noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_SETZERO();
   }
 
   template<>
   _ppz_impl_INLINE
-  SIMD<uint32_t>::Type simd_setzero<uint32_t>() noexcept
+  auto simd_setzero<uint32_t>() noexcept -> SIMD<uint32_t>::Type
   {
     return _ppz_impl_I32_SETZERO();
 #   undef  _ppz_impl_I32_SETZERO
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_loadu(const int32_t* const _ppz_impl_RESTRICT data) noexcept
+  auto simd_loadu(const int32_t* const _ppz_impl_RESTRICT data) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_LOADU(data);
   }
 
   _ppz_impl_INLINE
-  SIMD<uint32_t>::Type simd_loadu(const uint32_t* const _ppz_impl_RESTRICT data) noexcept
+  auto simd_loadu(const uint32_t* const _ppz_impl_RESTRICT data) noexcept -> SIMD<uint32_t>::Type
   {
     return _ppz_impl_I32_LOADU(data);
 #   undef  _ppz_impl_I32_LOADU
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_loada(const int32_t* const _ppz_impl_RESTRICT data) noexcept
+  auto simd_loada(const int32_t* const _ppz_impl_RESTRICT data) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_LOADA(data);
   }
 
   _ppz_impl_INLINE
-  SIMD<uint32_t>::Type simd_loada(const uint32_t* const _ppz_impl_RESTRICT data) noexcept
+  auto simd_loada(const uint32_t* const _ppz_impl_RESTRICT data) noexcept -> SIMD<uint32_t>::Type
   {
     return _ppz_impl_I32_LOADA(data);
 #   undef  _ppz_impl_I32_LOADA
   }
 
   _ppz_impl_INLINE
-  void simd_storeu(int32_t addr[], const SIMD<int32_t>::Type& data)
+  void simd_storeu(int32_t* const addr, const SIMD<int32_t>::Type data)
   {
     _ppz_impl_I32_STOREU(addr, data);
   }
 
   _ppz_impl_INLINE
-  void simd_storeu(uint32_t addr[], const SIMD<uint32_t>::Type& data)
+  void simd_storeu(uint32_t* const addr, const SIMD<uint32_t>::Type data)
   {
     _ppz_impl_I32_STOREU(addr, data);
 #   undef _ppz_impl_I32_STOREU
   }
 
   _ppz_impl_INLINE
-  void simd_storea(int32_t addr[], const SIMD<int32_t>::Type& data)
+  void simd_storea(int32_t* const addr, const SIMD<int32_t>::Type data)
   {
     _ppz_impl_I32_STOREA(addr, data);
   }
 
   _ppz_impl_INLINE
-  void simd_storea(uint32_t addr[], const SIMD<uint32_t>::Type& data)
+  void simd_storea(uint32_t* const addr, const SIMD<uint32_t>::Type data)
   {
     _ppz_impl_I32_STOREA(addr, data);
 #   undef _ppz_impl_I32_STOREA
@@ -1673,161 +1678,161 @@ namespace ppz
 
   template<>
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_setval(const int32_t value) noexcept
+  auto simd_setval(const int32_t value) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_SETVAL(value);
   }
 
   template<>
   _ppz_impl_INLINE
-  SIMD<uint32_t>::Type simd_setval(const uint32_t value) noexcept
+  auto simd_setval(const uint32_t value) noexcept -> SIMD<uint32_t>::Type
   {
     return _ppz_impl_I32_SETVAL(value);
 #   undef  _ppz_impl_I32_SETVAL
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_add(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_add(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_ADD(a, b);
 #   undef  _ppz_impl_I32_ADD
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_mul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_mul(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_MUL(a, b);
 #   undef  _ppz_impl_I32_MUL
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_sub(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_sub(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_SUB(a, b);
 #   undef  _ppz_impl_I32_SUB
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_div(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_div(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_DIV(a, b);
 #   undef  _ppz_impl_I32_DIV
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_addmul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b, const SIMD<int32_t>::Type& c) noexcept
+  auto simd_addmul(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b, const SIMD<int32_t>::Type c) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_ADDMUL(a, b, c);
 #   undef  _ppz_impl_I32_ADDMUL
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_submul(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b, const SIMD<int32_t>::Type& c) noexcept
+  auto simd_submul(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b, const SIMD<int32_t>::Type c) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_SUBMUL(a, b, c);
 #   undef  _ppz_impl_I32_SUBMUL
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_sqrt(const SIMD<int32_t>::Type& a) noexcept
+  auto simd_sqrt(const SIMD<int32_t>::Type a) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_SQRT(a);
 #   undef  _ppz_impl_I32_SQRT
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_abs(const SIMD<int32_t>::Type& a) noexcept
+  auto simd_abs(const SIMD<int32_t>::Type a) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_ABS(a);
 #   undef  _ppz_impl_I32_ABS
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Mask simd_eq(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_eq(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Mask
   {
     return _ppz_impl_I32_EQ(a, b);
 #   undef  _ppz_impl_I32_EQ
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Mask simd_neq(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_neq(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Mask
   {
     return _ppz_impl_I32_NEQ(a, b);
 #   undef  _ppz_impl_I32_NEQ
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Mask simd_gt(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_gt(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Mask
   {
     return _ppz_impl_I32_GT(a, b);
 #   undef  _ppz_impl_I32_GT
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Mask simd_gte(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_gte(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Mask
   {
     return _ppz_impl_I32_GTE(a, b);
 #   undef  _ppz_impl_I32_GTE
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Mask simd_lt(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_lt(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Mask
   {
     return _ppz_impl_I32_LT(a, b);
 #   undef  _ppz_impl_I32_LT
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Mask simd_lte(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_lte(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Mask
   {
     return _ppz_impl_I32_LTE(a, b);
 #   undef  _ppz_impl_I32_LTE
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_compl(const SIMD<int32_t>::Type& a) noexcept
+  auto simd_compl(const SIMD<int32_t>::Type a) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_BW_NOT(a);
 #   undef  _ppz_impl_I32_BW_NOT
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_and(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_and(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_BW_AND(a, b);
 #   undef  _ppz_impl_I32_BW_AND
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_nand(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_nand(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_BW_NAND(a, b);
 #   undef  _ppz_impl_I32_BW_NAND
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_or(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_or(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_BW_OR(a, b);
 #   undef  _ppz_impl_I32_BW_OR
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_nor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_nor(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_BW_NOR(a, b);
 #   undef  _ppz_impl_I32_BW_NOR
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_xor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_xor(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_BW_XOR(a, b);
 #   undef  _ppz_impl_I32_BW_XOR
   }
 
   _ppz_impl_INLINE
-  SIMD<int32_t>::Type simd_xnor(const SIMD<int32_t>::Type& a, const SIMD<int32_t>::Type& b) noexcept
+  auto simd_xnor(const SIMD<int32_t>::Type a, const SIMD<int32_t>::Type b) noexcept -> SIMD<int32_t>::Type
   {
     return _ppz_impl_I32_BW_XNOR(a, b);
 #   undef  _ppz_impl_I32_BW_XNOR
@@ -1835,8 +1840,9 @@ namespace ppz
 #endif
 }
 
+#if defined(_ppz_impl_F64)
   inline _ppz_impl_CONSTEXPR_CPP14
-  std::ostream& operator<<(std::ostream& ostream, const ppz::SIMD<double>::Type& vector) noexcept
+  std::ostream& operator<<(std::ostream& ostream, const ppz::SIMD<double>::Type vector) noexcept
   {
     for (size_t k = 0; k < ppz::SIMD<double>::size; ++k)
     {
@@ -1845,14 +1851,16 @@ namespace ppz
         ostream << ' ';
       }
 
-      ostream << reinterpret_cast<const double*>(&vector)[k];
+      ostream << _ppz_impl_INDEX(vector, k);
     }
 
     return ostream;
   }
+#endif
 
+#if defined(_ppz_impl_F32)
   inline _ppz_impl_CONSTEXPR_CPP14
-  std::ostream& operator<<(std::ostream& ostream, const ppz::SIMD<float>::Type& vector) noexcept
+  std::ostream& operator<<(std::ostream& ostream, const ppz::SIMD<float>::Type vector) noexcept
   {
     for (size_t k = 0; k < ppz::SIMD<float>::size; ++k)
     {
@@ -1861,14 +1869,16 @@ namespace ppz
         ostream << ' ';
       }
 
-      ostream << reinterpret_cast<const float*>(&vector)[k];
+      ostream << _ppz_impl_INDEX(vector, k);
     }
 
     return ostream;
   }
+#endif
 
+#if defined(_ppz_impl_I32)
   inline _ppz_impl_CONSTEXPR_CPP14
-  std::ostream& operator<<(std::ostream& ostream, const ppz::SIMD<int32_t>::Type& vector) noexcept
+  std::ostream& operator<<(std::ostream& ostream, const ppz::SIMD<int32_t>::Type vector) noexcept
   {
     for (size_t k = 0; k < ppz::SIMD<int32_t>::size; ++k)
     {
@@ -1877,16 +1887,22 @@ namespace ppz
         ostream << ' ';
       }
 
-      ostream << reinterpret_cast<const int32_t*>(&vector)[k];
+      ostream << _ppz_impl_INDEX(vector, k);
     }
 
     return ostream;
   }
+#endif
+//----------------------------------------------------------------------------------------------------------------------
 #undef _ppz_impl_INLINE
+#undef _ppz_impl_RESTRICT
+#undef _ppz_impl_INDEX
 #undef _ppz_impl_PRAGMA
 #undef _ppz_impl_CLANG_IGNORE
-#undef _ppz_impl_UNLIKELY
 #undef _ppz_impl_LIKELY
+#undef _ppz_impl_UNLIKELY
+#undef _ppz_impl_EXPECTED
+#undef _ppz_impl_ABNORMAL
 #undef _ppz_impl_THREADLOCAL
 #undef _ppz_impl_DECLARE_MUTEX
 #undef _ppz_impl_DECLARE_LOCK
