@@ -1,8 +1,38 @@
-#include "Parallilos.hpp"
+#include "../include/parallilos.hpp"
+#include <cstdint>
 
-int test()
+namespace stz
 {
-  using namespace ppz;
+  inline namespace parallilos
+  {
+    namespace para
+    {
 
-  return 0;
+    }
+
+    namespace sequ
+    {
+
+    }
+  }
+}
+
+#define impl_parallelize(...)                \
+  { using namespace stz::para; __VA_ARGS__ } \
+  { using namespace stz::sequ; __VA_ARGS__ }
+#define parallelize(size)     impl_parallelize
+
+int main()
+{
+  stz::Array<float> a(250), b(250), c(250);
+  stz::SIMD<float>::Type av, bv, cv;
+
+
+  parallelize(1)
+  (
+    cv = av + bv;
+  )
+
+
+
 }
