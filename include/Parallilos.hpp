@@ -122,9 +122,6 @@ namespace stz
   template<typename type>
   struct SIMD;
 
-  template<typename type>
-  class Array;
-
   // for exposition purposes only, this is not the implementation.
   struct type_t {}; struct simd_t {}; struct mask_t {};
 
@@ -512,56 +509,6 @@ namespace stz
   };
 //----------------------------------------------------------------------------------------------------------------------
   template<typename type>
-  class Array final
-  {
-    static_assert(std::is_arithmetic<type>::value, "Array: 'type' must be arithmetic.");
-  public:
-    inline constexpr
-    auto data(size_t index = 0) const noexcept -> const type*;
-
-    inline _stz_impl_CONSTEXPR_CPP14
-    auto data(size_t index = 0) noexcept -> type*;
-
-    inline constexpr
-    auto size() const noexcept -> size_t;
-    
-    inline constexpr 
-    auto operator[](size_t index) const noexcept -> type;
-
-    inline _stz_impl_CONSTEXPR_CPP14
-    auto operator[](size_t index) noexcept -> type&;
-
-    inline constexpr explicit
-    operator type*() noexcept;
-
-    inline constexpr
-    auto release() noexcept -> type*;
-
-    inline
-    auto as_vector(size_t index) noexcept -> typename SIMD<type>::Type&;
-
-    inline _stz_impl_CONSTEXPR_CPP14
-    Array(size_t number_of_elements) noexcept;
-
-    inline _stz_impl_CONSTEXPR_CPP14
-    Array(std::initializer_list<type> initializer_list) noexcept;
-
-    inline _stz_impl_CONSTEXPR_CPP14
-    Array(Array&& other_) noexcept;
-
-    inline ~Array();
-
-  private:
-    type* _stz_impl_RESTRICT _array;
-    size_t                   _size;  // true size
-    size_t                   _numel;
-
-  public:
-    void operator=(const Array& B) noexcept;
-    Array(const Array&) noexcept;
-  };
-// ---------------------------------------------------------------------------------------------------------------------
-  template<typename type>
   constexpr
   auto SIMD<type>::parallel(const size_t n_elements_) noexcept -> _impl::_par_iterator<size>
   {
@@ -575,141 +522,6 @@ namespace stz
     return _impl::_seq_iterator<size>(n_elements_);
   }
 //----------------------------------------------------------------------------------------------------------------------
-  template<typename type>
-  constexpr
-  auto Array<type>::data(const size_t index_) const noexcept -> const type*
-  {
-    return _array + index_;
-  }
-
-  template<typename type>
-  _stz_impl_CONSTEXPR_CPP14
-  auto Array<type>::data(const size_t index_) noexcept -> type*
-  {
-    return _array + index_;
-  }
-
-  template<typename type>
-  constexpr
-  auto Array<type>::size() const noexcept -> size_t
-  {
-    return _numel;
-  }
-
-  template<typename type>
-  constexpr
-  auto Array<type>::operator[](const size_t index_) const noexcept -> type
-  {
-    return _array[index_];
-  }
-
-  template<typename type>
-  _stz_impl_CONSTEXPR_CPP14
-  auto Array<type>::operator[](const size_t index_) noexcept -> type&
-  {
-    return _array[index_];
-  }
-
-  template<typename type>
-  constexpr
-  Array<type>::operator type* () noexcept
-  {
-    return _array;
-  }
-
-  template<typename type>
-  constexpr
-  auto Array<type>::release() noexcept -> type*
-  {
-    type* data = _array;
-    _array     = nullptr;
-    _size      = 0;
-    _numel     = 0;
-    return data;
-  }
-
-  template<typename type>
-  _stz_impl_CONSTEXPR_CPP14
-  Array<type>::Array(const size_t number_of_elements_) noexcept :
-    _array(_impl::aligned_allocation<type>(number_of_elements_)),
-    _size(_array == nullptr ? 0 : number_of_elements_),
-    _numel(_size)
-  {
-    _stz_impl_DEBUG_MESSAGE("created array of size %zu.", _numel);
-  }
-
-  template<typename type>
-  _stz_impl_CONSTEXPR_CPP14
-  Array<type>::Array(const std::initializer_list<type> initializer_list_) noexcept :
-    Array(initializer_list_.size())
-  {
-    if _stz_impl_EXPECTED(_numel != 0)
-    {
-      size_t index = 0;
-      for (const type value : initializer_list_)
-      {
-        _array[index++] = value;
-      }
-    }
-  }
-
-  template<typename type>
-  _stz_impl_CONSTEXPR_CPP14
-  Array<type>::Array(Array&& other_) noexcept :
-    _array(other_._array),
-    _size(other_._size),
-    _numel(other_._numel)
-  {
-    _stz_impl_DEBUG_MESSAGE("moved array of size %zu.", _numel);
-    other_._array = nullptr;
-    other_._size  = 0;
-    other_._numel = 0;
-  }
-
-  template<typename type>
-  Array<type>::~Array()
-  {
-    _impl::aligned_deallocation<type>(_array);
-
-    _stz_impl_DEBUG_MESSAGE("freed used memory.");
-  }
-    
-  template<typename type>
-  auto Array<type>::as_vector(const size_t index_) noexcept -> typename SIMD<type>::Type&
-  {
-    // maybe change this to make index be not a per ('type') jump but a per ('type' * SIMD<'type'>::size)
-    // jump and also handle when debugging/safe if the index is too large
-    return reinterpret_cast<typename SIMD<type>::Type&>(_array[index_]);
-  }
-
-  template<typename type>
-  void Array<type>::operator=(const Array<type>& other_) noexcept
-  {
-    _numel = other_._numel;
-
-    if _stz_impl_EXPECTED(_size < _numel)
-    {
-      _impl::aligned_deallocation<type>(_array);
-      _array = _impl::aligned_allocation<type>(_numel);
-      _size  = _numel;
-    }
-
-    std::memcpy(_array, other_._array, _numel);
-
-    return;
-  }
-
-  template<typename type>
-  Array<type>::Array(const Array<type>& other_) noexcept :
-    _array(_impl::aligned_allocation<type>(other_._numel)),
-    _size(other_._size),
-    _numel(other_._numel)
-  {
-    std::memcpy(_array, other_._array, _numel);
-
-    return;
-  }
-// ---------------------------------------------------------------------------------------------------------------------
   template<typename type>
   constexpr
   typename SIMD<type>::Type simd_loadu(const type* const _stz_impl_RESTRICT data) noexcept
@@ -969,8 +781,8 @@ namespace stz
 #if defined(_stz_impl_AVX512F)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
 # define _stz_impl_F32
-# define _stz_impl_F32_ALIGNAS 64
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(float, alignas(_stz_impl_F32_ALIGNAS) alignas(_stz_impl_F32_ALIGNAS) __m512, __mmask16, 64, "AVX512F");
+# define _stz_impl_F32_ALIGNAS alignas(64)
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(float, _stz_impl_F32_ALIGNAS _stz_impl_F32_ALIGNAS __m512, __mmask16, 64, "AVX512F");
 # define _stz_impl_F32_LOADU(data)           _mm512_loadu_ps(data)
 # define _stz_impl_F32_LOADA(data)           _mm512_load_ps(data)
 # define _stz_impl_F32_STOREU(addr, data)    _mm512_storeu_ps(reinterpret_cast<void*>(addr), data)
@@ -995,8 +807,8 @@ namespace stz
 #elif defined(_stz_impl_FMA)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
 # define _stz_impl_F32
-# define _stz_impl_F32_ALIGNAS 32
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(float, alignas(_stz_impl_F32_ALIGNAS) __m256, __m256, 32, "AVX, FMA");
+# define _stz_impl_F32_ALIGNAS alignas(32)
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(float, _stz_impl_F32_ALIGNAS __m256, __m256, 32, "AVX, FMA");
 # define _stz_impl_F32_LOADU(data)           _mm256_loadu_ps(data)
 # define _stz_impl_F32_LOADA(data)           _mm256_load_ps(data)
 # define _stz_impl_F32_STOREU(addr, data)    _mm256_storeu_ps(addr, data)
@@ -1021,8 +833,8 @@ namespace stz
 #elif defined(_stz_impl_AVX)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
 # define _stz_impl_F32
-# define _stz_impl_F32_ALIGNAS 32
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(float, alignas(_stz_impl_F32_ALIGNAS) __m256, __m256, 32, "AVX");
+# define _stz_impl_F32_ALIGNAS alignas(32)
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(float, _stz_impl_F32_ALIGNAS __m256, __m256, 32, "AVX");
 # define _stz_impl_F32_LOADU(data)           _mm256_loadu_ps(data)
 # define _stz_impl_F32_LOADA(data)           _mm256_load_ps(data)
 # define _stz_impl_F32_STOREU(addr, data)    _mm256_storeu_ps(addr, data)
@@ -1047,8 +859,8 @@ namespace stz
 #elif defined(_stz_impl_SSE)
   static_assert(sizeof(float) == 4, "float must be 32 bit");
 # define _stz_impl_F32
-# define _stz_impl_F32_ALIGNAS 16
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(float, alignas(_stz_impl_F32_ALIGNAS) __m128, __m128, 16, "SSE");
+# define _stz_impl_F32_ALIGNAS alignas(16)
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(float, _stz_impl_F32_ALIGNAS __m128, __m128, 16, "SSE");
 # define _stz_impl_F32_LOADU(data)           _mm_loadu_ps(data)
 # define _stz_impl_F32_LOADA(data)           _mm_load_ps(data)
 # define _stz_impl_F32_STOREU(addr, data)    _mm_storeu_ps(addr, data)
@@ -1073,7 +885,7 @@ namespace stz
 // #elif defined(_stz_impl_NEON) or defined(_stz_impl_NEON64)
 //   static_assert(sizeof(float) == 4, "float must be 32 bit");
 // # define _stz_impl_F32
-//   _stz_impl_MAKE_SIMD_SPECIALIZATION(float, alignas(_stz_impl_F32_ALIGNAS) float32x4_t, uint32x4_t, 0, "NEON");
+//   _stz_impl_MAKE_SIMD_SPECIALIZATION(float, _stz_impl_F32_ALIGNAS float32x4_t, uint32x4_t, 0, "NEON");
 // # define _stz_impl_F32_LOADU(data)           vld1q_f32(data)
 // # define _stz_impl_F32_LOADA(data)           vld1q_f32(data)
 // # define _stz_impl_F32_STOREU(addr, data)    vst1q_f32(addr, data)
@@ -1243,9 +1055,9 @@ namespace stz
 
 #if defined(_stz_impl_AVX512F)
 # define _stz_impl_F64
-# define _stz_impl_F64_ALIGNAS 64
+# define _stz_impl_F64_ALIGNAS alignas(64)
   static_assert(sizeof(double) == 8, "double must be 64 bit");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(double, alignas(_stz_impl_F32_ALIGNAS) __m512d, __mmask8, 64, "AVX512F");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(double, _stz_impl_F32_ALIGNAS __m512d, __mmask8, 64, "AVX512F");
 # define _stz_impl_F64_LOADU(data)           _mm512_loadu_pd(data)
 # define _stz_impl_F64_LOADA(data)           _mm512_load_pd(data)
 # define _stz_impl_F64_STOREU(addr, data)    _mm512_storeu_pd(reinterpret_cast<void*>(addr), data)
@@ -1269,9 +1081,9 @@ namespace stz
 
 #elif defined(_stz_impl_FMA)
 # define _stz_impl_F64
-# define _stz_impl_F64_ALIGNAS 32
+# define _stz_impl_F64_ALIGNAS alignas(32)
   static_assert(sizeof(double) == 8, "double must be 64 bit");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(double, alignas(_stz_impl_F32_ALIGNAS) __m256d, __m256d, 32, "AVX, FMA");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(double, _stz_impl_F32_ALIGNAS __m256d, __m256d, 32, "AVX, FMA");
 # define _stz_impl_F64_LOADU(data)           _mm256_loadu_pd(data)
 # define _stz_impl_F64_LOADA(data)           _mm256_load_pd(data)
 # define _stz_impl_F64_STOREU(addr, data)    _mm256_storeu_pd(addr, data)
@@ -1295,9 +1107,9 @@ namespace stz
 
 #elif defined(_stz_impl_AVX)
 # define _stz_impl_F64
-# define _stz_impl_F64_ALIGNAS 32
+# define _stz_impl_F64_ALIGNAS alignas(32)
   static_assert(sizeof(double) == 8, "double must be 64 bit");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(double, alignas(_stz_impl_F32_ALIGNAS) __m256d, __m256d, 32, "AVX");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(double, _stz_impl_F32_ALIGNAS __m256d, __m256d, 32, "AVX");
 # define _stz_impl_F64_LOADU(data)           _mm256_loadu_pd(data)
 # define _stz_impl_F64_LOADA(data)           _mm256_load_pd(data)
 # define _stz_impl_F64_STOREU(addr, data)    _mm256_storeu_pd(addr, data)
@@ -1321,9 +1133,9 @@ namespace stz
 
 #elif defined(_stz_impl_SSE2)
 # define _stz_impl_F64
-# define _stz_impl_F64_ALIGNAS 16
+# define _stz_impl_F64_ALIGNAS alignas(16)
   static_assert(sizeof(double) == 8, "double must be 64 bit");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(double, alignas(_stz_impl_F32_ALIGNAS) __m128d, __m128d, 16, "SSE2");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(double, _stz_impl_F32_ALIGNAS __m128d, __m128d, 16, "SSE2");
 # define _stz_impl_F64_LOADU(data)           _mm_loadu_pd(data)
 # define _stz_impl_F64_LOADA(data)           _mm_load_pd(data)
 # define _stz_impl_F64_STOREU(addr, data)    _mm_storeu_pd(addr, data)
@@ -1348,7 +1160,7 @@ namespace stz
 // #elif defined(_stz_impl_NEON) or defined(_stz_impl_NEON64)
 // # define _stz_impl_F64
 //   static_assert(sizeof(double) == 8, "double must be 64 bit");
-//   _stz_impl_MAKE_SIMD_SPECIALIZATION(double, alignas(_stz_impl_F32_ALIGNAS) float64x4_t, float64x4_t, 0, "NEON");
+//   _stz_impl_MAKE_SIMD_SPECIALIZATION(double, _stz_impl_F32_ALIGNAS float64x4_t, float64x4_t, 0, "NEON");
 // # define _stz_impl_F64_LOADU(data)           vld1q_f64(data)
 // # define _stz_impl_F64_LOADA(data)           vld1q_f64(data)
 // # define _stz_impl_F64_STOREU(addr, data)    vst1q_f64(addr, data)
@@ -1517,10 +1329,10 @@ namespace stz
 
 #if defined(_stz_impl_AVX512F)
 # define _stz_impl_I32
-# define _stz_impl_I32_ALIGNAS 64
+# define _stz_impl_I32_ALIGNAS alignas(64)
   static_assert(sizeof(int32_t) == 4, "int32_t must be 32 bit");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, alignas(_stz_impl_F32_ALIGNAS) __m512i, __mmask16, 64, "AVX512F");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, alignas(_stz_impl_F32_ALIGNAS) __m512i, __mmask16, 64, "AVX512F");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, _stz_impl_F32_ALIGNAS __m512i, __mmask16, 64, "AVX512F");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, _stz_impl_F32_ALIGNAS __m512i, __mmask16, 64, "AVX512F");
 # define _stz_impl_I32_LOADU(data)           _mm512_loadu_si512(data)
 # define _stz_impl_I32_LOADA(data)           _mm512_load_si512(data)
 # define _stz_impl_I32_STOREU(addr, data)    _mm512_storeu_si512(reinterpret_cast<void*>(addr), data)
@@ -1557,9 +1369,9 @@ namespace stz
 
 #elif defined(_stz_impl_AVX2)
 # define _stz_impl_I32
-# define _stz_impl_I32_ALIGNAS 32
-  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, alignas(_stz_impl_F32_ALIGNAS) __m256i, __m256i, 32, "AVX2, AVX");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, alignas(_stz_impl_F32_ALIGNAS) __m256i, __m256i, 32, "AVX2, AVX");
+# define _stz_impl_I32_ALIGNAS alignas(32)
+  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, _stz_impl_F32_ALIGNAS __m256i, __m256i, 32, "AVX2, AVX");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, _stz_impl_F32_ALIGNAS __m256i, __m256i, 32, "AVX2, AVX");
 # define _stz_impl_I32_LOADU(data)           _mm256_loadu_si256((const __m256i*)data)
 # define _stz_impl_I32_LOADA(data)           _mm256_load_si256((const __m256i*)data)
 # define _stz_impl_I32_STOREU(addr, data)    _mm256_storeu_si256 ((__m256i*)addr, data)
@@ -1596,9 +1408,9 @@ namespace stz
 
 #elif defined(_stz_impl_SSE4_1)
 # define _stz_impl_I32
-# define _stz_impl_I32_ALIGNAS 16
-  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, alignas(_stz_impl_F32_ALIGNAS) __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, alignas(_stz_impl_F32_ALIGNAS) __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
+# define _stz_impl_I32_ALIGNAS alignas(16)
+  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, _stz_impl_F32_ALIGNAS __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, _stz_impl_F32_ALIGNAS __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
 # define _stz_impl_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
 # define _stz_impl_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
 # define _stz_impl_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
@@ -1635,9 +1447,9 @@ namespace stz
 
 #elif defined(_stz_impl_SSSE3)
 # define _stz_impl_I32
-# define _stz_impl_I32_ALIGNAS 16
-  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, alignas(_stz_impl_F32_ALIGNAS) __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, alignas(_stz_impl_F32_ALIGNAS) __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
+# define _stz_impl_I32_ALIGNAS alignas(16)
+  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, _stz_impl_F32_ALIGNAS __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, _stz_impl_F32_ALIGNAS __m128i, __m128i, 16, "SSE4.1, SSE2, SSE");
 # define _stz_impl_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
 # define _stz_impl_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
 # define _stz_impl_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
@@ -1674,9 +1486,9 @@ namespace stz
 
 #elif defined(_stz_impl_SSE2)
 # define _stz_impl_I32
-# define _stz_impl_I32_ALIGNAS 16
-  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, alignas(_stz_impl_F32_ALIGNAS) __m128i, __m128i, 16, "SSE2, SSE");
-  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, alignas(_stz_impl_F32_ALIGNAS) __m128i, __m128i, 16, "SSE2, SSE");
+# define _stz_impl_I32_ALIGNAS alignas(16)
+  _stz_impl_MAKE_SIMD_SPECIALIZATION( int32_t, _stz_impl_F32_ALIGNAS __m128i, __m128i, 16, "SSE2, SSE");
+  _stz_impl_MAKE_SIMD_SPECIALIZATION(uint32_t, _stz_impl_F32_ALIGNAS __m128i, __m128i, 16, "SSE2, SSE");
 # define _stz_impl_I32_LOADU(data)           _mm_loadu_si128((const __m128i*)data)
 # define _stz_impl_I32_LOADA(data)           _mm_load_si128((const __m128i*)data)
 # define _stz_impl_I32_STOREU(addr, data)    _mm_storeu_si128((__m128i*)addr, data)
@@ -2017,6 +1829,6 @@ namespace stz
 #undef _stz_impl_DECLARE_LOCK
 #undef _stz_impl_MAKE_SIMD_SPECIALIZATION
 #else
-#error alignas(_stz_impl_F32_ALIGNAS) "stz: Support for ISO C++11 is required"
+#error _stz_impl_F32_ALIGNAS "stz: Support for ISO C++11 is required"
 #endif
 #endif

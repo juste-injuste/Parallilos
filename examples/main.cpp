@@ -6,40 +6,23 @@
 #include "parallilos.hpp"
 #include "Chronometro.hpp"
 
-template<typename T> inline
-void print_array(const stz::Array<T>& array)
-{
-  for (unsigned k = 0; k < array.size(); ++k)
-  {
-    std::cout << array[k] << ' ';
-  }
-  std::cout << '\n';
-  
-  std::cout << "Instruction set:          " << stz::SIMD<T>::set  << '\n';
-  std::cout << "Data per parallel passes: " << stz::SIMD<T>::size << '\n';
-  std::cout << "Parallel passes:          " << stz::SIMD<T>::parallel(array.size()).passes   << '\n';
-  std::cout << "Sequential passes:        " << stz::SIMD<T>::sequential(array.size()).passes << '\n';
-}
-
 int main()
 {
-  using type = float;
-
   // heap array
-  const unsigned n = 20;
-  auto a = stz::Array<type>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-  auto b = stz::Array<type>({9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-  auto c = stz::Array<type>(n);
+  constexpr unsigned n = 20;
+  _stz_impl_F32_ALIGNAS float a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  _stz_impl_F32_ALIGNAS float b[] = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  _stz_impl_F32_ALIGNAS float c[n];
   
   CHZ_MEASURE(100)
   CHZ_LOOP_FOR(1000000)
   {
-    for (const size_t k : stz::SIMD<type>::parallel(n))
+    for (const size_t k : stz::SIMD<float>::parallel(n))
     {
-      stz::simd_storea(c.data(k), stz::simd_mul(a.as_vector(k), b.as_vector(k)));
+      stz::simd_storea(c + k, stz::simd_mul(a.as_vector(k), b.as_vector(k)));
     }
 
-    for (const size_t k : stz::SIMD<type>::sequential(n))
+    for (const size_t k : stz::SIMD<float>::sequential(n))
     {
       c[k] = a[k] * b[k];
     }
