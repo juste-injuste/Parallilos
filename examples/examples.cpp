@@ -30,37 +30,38 @@ int main()
   auto a = ppz::Array<type>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
   auto b = ppz::Array<type>({9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
   auto c = ppz::Array<type>(n);
-
-  // parallel processing
-  for (auto k : ppz::SIMD<type>::parallel(n))
-  {
-    ppz::simd_storea(c+k, ppz::simd_mul(a.as_vector(k), b.as_vector(k)));
-  }
-
-  // sequential fallback
-  for (auto k : ppz::SIMD<type>::sequential(n))
-  {
-    c[k] = a[k] * b[k];
-  }
-
-  CHZ_MEASURE(10, "iteration %# took %us")
+  
+  CHZ_MEASURE(100)
   CHZ_LOOP_FOR(1000000)
   {
-    for (const auto k : ppz::SIMD<type>::parallel(n))
+    for (const size_t k : ppz::SIMD<type>::parallel(n))
     {
-      ppz::simd_storea(c+k, ppz::simd_mul(a.as_vector(k), b.as_vector(k)));
+      ppz::simd_storea(c.data(k), ppz::simd_mul(a.as_vector(k), b.as_vector(k)));
     }
 
-    for (const auto k : ppz::SIMD<type>::sequential(n))
+    for (const size_t k : ppz::SIMD<type>::sequential(n))
     {
       c[k] = a[k] * b[k];
     }
   }
-  std::cout << "Instruction set: " << ppz::SIMD<type>::set  << '\n';
-
   
+  CHZ_MEASURE(100)
+  CHZ_LOOP_FOR(1000000)
+  {
+    for (size_t k = 0; k < n; ++k)
+    {
+      c[k] = a[k] * b[k];
+    }
+  }
+
+  ppz::simd_lt(a.as_vector(0), b.as_vector(0));
+
+
+
+  // std::cout << "Instruction set: " << ppz::SIMD<type>::set  << '\n';
   // // display result array
   // print_array(c);
+
 
   // auto v1 = ppz::simd_setval<double>(1);
   // auto v2 = ppz::simd_setval<char>('2');
